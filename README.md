@@ -89,10 +89,22 @@ configurable levels, using pattern matching rather than a model.
 
 | | Requirement |
 |---|---|
-| macOS | 26.0 or later |
+| macOS, to run | 26.0 or later |
+| macOS, to build | 27.0 or later — see below |
 | Architecture | Apple silicon (`arm64`) |
 | Memory | 8 GB or more |
 | Building | Xcode Command Line Tools (`xcode-select --install`) |
+
+**Running and building have different requirements.** File transcription uses
+`AssetInputSequenceProvider` where it exists and falls back to exporting the
+audio track on macOS 26. The fallback is chosen at runtime by
+`if #available(macOS 27.0, *)`, so a binary built once runs correctly on either
+version — but `#available` is a runtime check, and resolving the symbol at all
+needs the macOS 27 SDK. Building on macOS 26 therefore fails to compile, while
+the binary produced on macOS 27 runs on macOS 26 unmodified.
+
+This is why continuous integration verifies the logic suites but does not build:
+GitHub-hosted runners currently ship macOS 26.
 
 Summarisation and correction proposals additionally require Apple Intelligence.
 Without it, both controls stay visible, explain what is needed, and offer to open
