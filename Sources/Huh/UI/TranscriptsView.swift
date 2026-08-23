@@ -227,6 +227,13 @@ private struct TranscriptDetail: View {
                             .transition(.opacity.combined(with: .offset(y: -8)))
                     }
 
+                    if let choice = summaries.pendingChoice, choice.transcript.id == transcript.id {
+                        SummaryChoiceCard(choice: choice)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 14)
+                            .padding(.bottom, 4)
+                    }
+
                     if isSummarising || !transcript.summary.isEmpty {
                         SummaryCard(transcript: transcript, running: isSummarising)
                             .padding(.horizontal, 16)
@@ -348,7 +355,10 @@ private struct TranscriptDetail: View {
             // Pressing it either summarises or explains what is missing; a
             // disabled button communicates neither.
             Button(transcript.summary.isEmpty ? "Summarise" : "Redo Summary") {
-                if intelligence.isReady {
+                // Apple Intelligence is no longer the only route to a summary,
+                // so its absence is a reason to offer the alternatives rather
+                // than to refuse.
+                if summaries.isAvailable || SummaryService.needsPieces(transcript) {
                     summaries.summarise(transcript)
                 } else {
                     ui.showingIntelligenceNotice = true
@@ -416,10 +426,14 @@ private struct SummaryCard: View {
                 SectionLabel("Summary")
                 Spacer(minLength: 0)
                 if running {
-                    Text("\(Int(summaries.progress * 100))%")
-                        .font(Theme.mono).monospacedDigit()
-                        .foregroundStyle(Theme.textTertiary)
-                        .contentTransition(.numericText())
+                    if let fraction = summaries.progress {
+                        Text("\(Int(fraction * 100))%")
+                            .font(Theme.mono).monospacedDigit()
+                            .foregroundStyle(Theme.textTertiary)
+                            .contentTransition(.numericText())
+                    } else {
+                        ProgressView().controlSize(.small)
+                    }
                 } else if !transcript.summary.isEmpty {
                     Button {
                         NSPasteboard.general.clearContents()
@@ -436,16 +450,39 @@ private struct SummaryCard: View {
                     Text(summaries.stage)
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Theme.hover)
-                            Capsule().fill(Theme.live)
-                                .frame(width: max(3, geo.size.width * summaries.progress))
+
+                    // Determinate only where there is something real to measure,
+                    // which in practice means downloading. A bar parked at a
+                    // made-up percentage for a minute reads as a hang.
+                    if let fraction = summaries.progress {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Theme.hover)
+                                Capsule().fill(Theme.live)
+                                    .frame(width: max(3, geo.size.width * fraction))
+                            }
                         }
+                        .frame(height: 3)
+                        .animation(Theme.quick, value: fraction)
+                    } else {
+                        IndeterminateBar()
                     }
-                    .frame(height: 3)
-                    .animation(Theme.quick, value: summaries.progress)
-                    Text("Running entirely on this Mac — Apple's on-device model, nothing sent anywhere.")
+
+                    // The text as it arrives. Nothing else here can honestly
+                    // convey progress during a minute of generation.
+                    if !summaries.streamed.isEmpty {
+                        Text(summaries.streamed.suffix(400))
+                            .font(Theme.body(11.5))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(4)
+                            .truncationMode(.head)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 2)
+                    }
+
+                    Text(summaries.runningEngine == .qwen
+                         ? "Running on this Mac — \(LocalLanguageModel.displayName), nothing sent anywhere."
+                         : "Running on this Mac — Apple's on-device model, nothing sent anywhere.")
                         .font(Theme.body(10.5))
                         .foregroundStyle(Theme.textTertiary.opacity(0.8))
                 }

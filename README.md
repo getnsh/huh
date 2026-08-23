@@ -83,10 +83,10 @@ configurable levels, using pattern matching rather than a model.
 | | Requirement |
 |---|---|
 | macOS, to run | 26.0 or later |
-| macOS, to build | 27.0 or later — see below |
+| macOS, to build | 27.0 or later, with Xcode — see below |
 | Architecture | Apple silicon (`arm64`) |
 | Memory | 8 GB or more |
-| Building | Xcode Command Line Tools (`xcode-select --install`) |
+| Building | Xcode, plus `xcodebuild -downloadComponent MetalToolchain` |
 
 **Running and building have different requirements.** File transcription uses
 `AssetInputSequenceProvider` where it exists and falls back to exporting the

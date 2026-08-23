@@ -75,7 +75,7 @@ enum FileTranscriber {
         guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else {
             throw Failure.noAudioTrack
         }
-        Log.asr.info("file transcribe: \(url.lastPathComponent, privacy: .public), \(duration, privacy: .public)s")
+        Log.asr.info("file transcribe: \(url.lastPathComponent), \(duration, privacy: .public)s")
 
         let analyzer = SpeechAnalyzer(
             modules: [transcriber],

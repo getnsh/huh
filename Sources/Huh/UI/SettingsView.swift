@@ -7,6 +7,7 @@ struct SettingsView: View {
     @ObservedObject private var controller = DictationController.shared
     @ObservedObject private var launch = LaunchAtLogin.shared
     @ObservedObject private var devices = AudioDevices.shared
+    @ObservedObject private var localModel = LocalLanguageModel.shared
 
     var body: some View {
         // Scrolling, not a taller window.
@@ -103,9 +104,39 @@ struct SettingsView: View {
                 }
             }
 
+            group("Summaries") {
+                row("Written by") {
+                    Picker("", selection: $settings.summaryEngine) {
+                        ForEach(SummaryEngineID.allCases) { id in
+                            Text(id.displayName).tag(id)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 250)
+                }
+                note(settings.summaryEngine.note)
+
+                if settings.summaryEngine == .qwen {
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(localModel.isReady ? Theme.live : Theme.warning)
+                            .frame(width: 6, height: 6)
+                        Text(localModel.statusText)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        if localModel.isReady {
+                            Button("Unload") { localModel.unload() }
+                                .buttonStyle(GhostButtonStyle())
+                        }
+                    }
+                }
+            }
+
             group("On-device intelligence") {
                 IntelligenceNotice(compact: true)
-                note("Summaries and correction suggestions use Apple's on-device model. Dictation, transcription, the dictionary, cleanup, search and export do not, and are unaffected by this setting.")
+                note("Finding names and unfamiliar words uses Apple's on-device model, as do summaries unless you chose otherwise above. Dictation, transcription, the dictionary, cleanup, search and export do not, and are unaffected by this setting.")
             }
 
             group("Cleanup") {

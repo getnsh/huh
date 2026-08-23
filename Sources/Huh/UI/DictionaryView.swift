@@ -360,10 +360,10 @@ struct EntryEditorSheet: View {
                 .foregroundStyle(Theme.textPrimary)
 
             if mode == .person {
-                FormField(label: "Name", placeholder: "Katherine Ng", text: $ui.draftName)
+                FormField(label: "Name", placeholder: "Ada Okonkwo", text: $ui.draftName)
                 FormField(
                     label: "Also heard as",
-                    placeholder: "Katharin, Catherine Eng",
+                    placeholder: "Ayda, Ada Oconquo",
                     text: $ui.draftAliases,
                     mono: true
                 )
@@ -374,7 +374,7 @@ struct EntryEditorSheet: View {
                     .foregroundStyle(Theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if mode == .correction {
-                FormField(label: "When you hear", placeholder: "store force", text: $ui.draftHear, mono: true)
+                FormField(label: "When you hear", placeholder: "super base", text: $ui.draftHear, mono: true)
 
                 if !ui.draftContext.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -388,7 +388,7 @@ struct EntryEditorSheet: View {
                             .background(RoundedRectangle(cornerRadius: 6).fill(Theme.base))
                     }
                 }
-                FormField(label: "Write", placeholder: "StoreForce", text: $ui.draftWrite, mono: true)
+                FormField(label: "Write", placeholder: "Supabase", text: $ui.draftWrite, mono: true)
 
                 if !ui.draftHear.trimmed.isEmpty {
                     HStack(spacing: 8) {
@@ -445,7 +445,7 @@ struct EntryEditorSheet: View {
                     )
                 }
             } else {
-                FormField(label: "Word or phrase", placeholder: "StoreForce", text: $ui.draftText)
+                FormField(label: "Word or phrase", placeholder: "Supabase", text: $ui.draftText)
                 FormField(label: "Note (optional)", placeholder: "what it is", text: $ui.draftNote)
 
                 Text("Words are passed to the recogniser before it transcribes, so it leans toward producing them. Measured on clean audio, this changed nothing at all — treat it as a nudge and add a correction for anything that actually matters.")

@@ -52,12 +52,7 @@ struct MenuBarContent: View {
     private var statusLine: String {
         switch controller.state {
         case .idle:
-            if let problem = devices.problem {
-                Divider()
-                Text(problem)
-                Button("Check Again") { devices.refresh() }
-            }
-
+            if !devices.hasInput { return "no microphone" }
             if !controller.hotkeyArmed { return "needs Accessibility" }
             return controller.enginePrepared
                 ? "hold \(ModifierKey.named(mask: settings.hotkeyMask).label)"

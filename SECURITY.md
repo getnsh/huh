@@ -55,6 +55,17 @@ previous contents are captured and restored afterwards. When no editable target
 has focus, the text is left on the pasteboard and reported, rather than
 synthesising a keystroke into an unknown destination.
 
+**Two model downloads, no content.** Selecting Parakeet or Qwen3 fetches weights
+once. Neither request carries audio, transcripts or dictionary entries. Sending a
+transcript to ChatGPT or Claude is a separate, explicitly chosen action: the text
+goes to your clipboard and the site opens, so the application transmits nothing
+and you see what you are sending.
+
+**The clipboard is restored, and guarded.** Text inserted by the paste path is
+marked with the concealed type clipboard managers honour, and the previous
+contents are put back only if nothing else has written to the pasteboard in the
+meantime — a copy you make during those milliseconds is never overwritten.
+
 **Deletion is reversible.** Source media is moved to the Trash via
 `NSWorkspace.recycle`, never unlinked. Transcripts retain the unmodified
 recogniser output in `raw`, so corrections and cleanup are always recoverable.

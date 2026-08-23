@@ -34,7 +34,8 @@ fi
 echo "==> building signed release"
 ./scripts/build.sh release
 
-APP="$ROOT/.build/bundle/$BUNDLE.app"
+APP="${HUH_STAGE:-${TMPDIR:-/tmp/}huh-build}/$BUNDLE.app"
+[ -d "$APP" ] || { echo "!! no bundle at $APP -- run scripts/build.sh first" >&2; exit 1; }
 DIST="$ROOT/dist"
 ARCHIVE="$DIST/$NAME-$VERSION.zip"
 mkdir -p "$DIST"

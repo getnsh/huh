@@ -87,12 +87,15 @@ enum TextInjector {
 
         let system = AXUIElementCreateSystemWide()
         var focused: CFTypeRef?
+        // `focused` is filled in across a process boundary by whichever
+        // application has focus. A buggy one can report success and leave it
+        // empty, so it is unwrapped safely rather than forced.
         guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              // swiftlint:disable:next force_cast
-              CFGetTypeID(focused!) == AXUIElementGetTypeID()
+              let value = focused,
+              CFGetTypeID(value) == AXUIElementGetTypeID()
         else { return false }
 
-        let element = focused as! AXUIElement
+        let element = value as! AXUIElement
 
         // Restrict to elements that declare themselves editable text.
         var roleValue: CFTypeRef?
@@ -118,6 +121,12 @@ enum TextInjector {
 
     // MARK: - Clipboard
 
+    /// Type used by clipboard managers to mean "do not record or sync this".
+    /// Marking the transcript with it keeps a dictated sentence out of
+    /// clipboard history and away from Universal Clipboard, which would
+    /// otherwise carry it to the user's other devices.
+    private static let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
     private static func pasteViaClipboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         let snapshot = pasteboard.pasteboardItems?.compactMap { item -> [NSPasteboard.PasteboardType: Data] in
@@ -126,17 +135,33 @@ enum TextInjector {
                 if let data = item.data(forType: type) { copy[type] = data }
             }
             return copy
-        }
+        } ?? []
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        pasteboard.setData(Data(), forType: concealed)
+
+        // Recorded after writing, so the restore can tell "nothing has touched
+        // the pasteboard since" from "the user copied something in the
+        // meantime".
+        let mark = pasteboard.changeCount
 
         postCommandV()
 
         // Allow the receiving application time to read the pasteboard.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            guard let snapshot, !snapshot.isEmpty else { return }
+            // Never clobber a copy the user made while the paste was in
+            // flight -- 450 ms is long enough for a deliberate Cmd-C.
+            guard pasteboard.changeCount == mark else { return }
+
             pasteboard.clearContents()
+
+            // An empty snapshot means the pasteboard was empty beforehand, and
+            // clearing is the correct restore. Returning early instead would
+            // leave the transcribed speech on the system pasteboard
+            // indefinitely, readable by every process on the machine.
+            guard !snapshot.isEmpty else { return }
+
             let items = snapshot.map { dict -> NSPasteboardItem in
                 let item = NSPasteboardItem()
                 for (type, data) in dict { item.setData(data, forType: type) }
@@ -148,9 +173,14 @@ enum TextInjector {
 
     private static func postCommandV() {
         let source = CGEventSource(stateID: .combinedSessionState)
-        // Prevent the synthesised ⌘V from being observed by local handlers.
+        // Local keyboard events must stay permitted.
+        //
+        // This filter governs which *hardware* events survive the suppression
+        // interval that follows a posted event, not whether the synthetic event
+        // is observable. Omitting keyboard here silently swallowed whatever the
+        // user typed in the quarter-second after each paste.
         source?.setLocalEventsFilterDuringSuppressionState(
-            [.permitLocalMouseEvents, .permitSystemDefinedEvents],
+            [.permitLocalMouseEvents, .permitLocalKeyboardEvents, .permitSystemDefinedEvents],
             state: .eventSuppressionStateSuppressionInterval
         )
 

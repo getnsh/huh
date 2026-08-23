@@ -30,7 +30,27 @@ final class SummaryService: ObservableObject {
     static let shared = SummaryService()
 
     @Published private(set) var runningFor: UUID?
-    @Published private(set) var progress: Double = 0
+    /// Nil while the work has no honest percentage. A bar that sits at a made-up
+    /// number for a minute is worse than no bar.
+    @Published private(set) var progress: Double?
+    /// Text as the model writes it, so a long generation is visibly working.
+    @Published private(set) var streamed: String = ""
+    /// Which model is doing the work, for the caption. It used to claim Apple
+    /// unconditionally, which became untrue the moment a second backend existed.
+    @Published private(set) var runningEngine: SummaryEngineID = .apple
+
+    /// Set when a transcript is too long for Apple's model to read in one pass
+    /// and the choice has not been made yet. The interface presents the options
+    /// rather than quietly producing a worse summary.
+    @Published var pendingChoice: PendingChoice?
+
+    struct PendingChoice: Identifiable, Equatable {
+        var id: UUID { transcript.id }
+        var transcript: Transcript
+        /// How many separate reads Apple's model would need.
+        var pieces: Int
+        var words: Int
+    }
     @Published private(set) var stage: String = ""
     @Published private(set) var failure: String?
 
@@ -48,24 +68,103 @@ final class SummaryService: ObservableObject {
 
     private init() {}
 
-    var isAvailable: Bool { ModelAvailability.shared.isReady }
+    /// Apple's model needs Apple Intelligence enabled; the downloaded one does
+    /// not, so with it selected summaries work on machines that have no Apple
+    /// Intelligence at all.
+    var isAvailable: Bool {
+        AppSettings.shared.summaryEngine == .qwen || ModelAvailability.shared.isReady
+    }
+
     var isRunning: Bool { runningFor != nil }
 
     func dismissFailure() { failure = nil }
 
+    /// Remembered so the question is asked once, not before every long
+    /// transcript.
+    static var hasDismissedChoice: Bool {
+        get { UserDefaults.standard.bool(forKey: "dismissedSummaryChoice") }
+        set { UserDefaults.standard.set(newValue, forKey: "dismissedSummaryChoice") }
+    }
+
+    /// Accepts the offer: switch to the local model and summarise. The download
+    /// happens inside the run, where its progress is already reported.
+    func acceptLocalModel() {
+        guard let choice = pendingChoice else { return }
+        AppSettings.shared.summaryEngine = .qwen
+        run(choice.transcript)
+    }
+
+    /// Proceed with Apple's model, in pieces, and stop asking.
+    func continueWithApple(remember: Bool) {
+        guard let choice = pendingChoice else { return }
+        if remember { Self.hasDismissedChoice = true }
+        run(choice.transcript)
+    }
+
+    func cancelChoice() { pendingChoice = nil }
+
     // MARK: - Summarise
 
+    /// Whether Apple's model would have to read this transcript in pieces.
+    ///
+    /// The window is 4,096 tokens for instructions, prompt and response
+    /// together, so anything much past a couple of thousand words cannot be
+    /// read in one pass. Stitching the pieces together is what loses material,
+    /// and it happens silently — which is the reason to say so up front.
+    static func piecesRequired(for transcript: Transcript) -> Int {
+        let words = transcript.wordCount
+        guard words > 0 else { return 1 }
+        let chunks = Int(ceil(Double(words) / 600.0))
+        return max(1, chunks)
+    }
+
+    static func needsPieces(_ transcript: Transcript) -> Bool {
+        piecesRequired(for: transcript) > 1
+    }
+
+    /// Entry point from the interface. Offers the choice once when it matters,
+    /// then gets out of the way.
     func summarise(_ transcript: Transcript) {
+        guard runningFor == nil else { return }
+
+        // Also offered when Apple Intelligence is unavailable: the download and
+        // the hand-off both work without it, so refusing outright would hide
+        // the two routes that would have succeeded.
+        if AppSettings.shared.summaryEngine == .apple,
+           Self.needsPieces(transcript),
+           !Self.hasDismissedChoice || !ModelAvailability.shared.isReady {
+            pendingChoice = PendingChoice(
+                transcript: transcript,
+                pieces: Self.piecesRequired(for: transcript),
+                words: transcript.wordCount
+            )
+            return
+        }
+        run(transcript)
+    }
+
+    /// Proceed with whatever backend is selected, choice already made.
+    func run(_ transcript: Transcript) {
+        pendingChoice = nil
         guard runningFor == nil, isAvailable else { return }
 
         runningFor = transcript.id
         progress = 0
+        streamed = ""
+        runningEngine = AppSettings.shared.summaryEngine
         failure = nil
         stage = "Reading the transcript…"
 
         Task {
             let started = Date()
             do {
+                if AppSettings.shared.summaryEngine == .qwen {
+                    try await summariseWholeTranscript(transcript, started: started)
+                    runningFor = nil
+                    stage = ""
+                    return
+                }
+
                 let chunks = Self.chunk(transcript, wordsPerChunk: wordsPerChunk)
                 Log.app.info("summarise: \(chunks.count, privacy: .public) chunks")
 
@@ -96,8 +195,96 @@ final class SummaryService: ObservableObject {
             }
             runningFor = nil
             stage = ""
+            streamed = ""
         }
     }
+
+    // MARK: - Whole-transcript path
+
+    /// The downloaded model holds an hour of speech at once, so there is no
+    /// chunking, no consolidation and no second pass. Every seam the staged
+    /// pipeline has to work around simply does not exist here.
+    private func summariseWholeTranscript(_ transcript: Transcript, started: Date) async throws {
+        // The model may not be on disk yet. Downloading is the only part of this
+        // with a real percentage, so it owns the progress bar; everything after
+        // reports what it is doing instead of pretending to measure it.
+        let model = LocalLanguageModel.shared
+        if !model.isReady {
+            progress = nil
+            let watch = Task { [weak self] in
+                while !Task.isCancelled {
+                    self?.stage = model.statusText
+                    self?.progress = model.state.fraction
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                }
+            }
+            defer { watch.cancel() }
+            _ = try await model.load()
+        }
+
+        stage = "Reading the whole meeting…"
+        progress = nil
+
+        let body = transcript.segments.isEmpty
+            ? transcript.text
+            : transcript.segments.map(\.text).joined(separator: " ")
+
+        let roster = PeopleStore.shared.names.prefix(20)
+        let rosterHint = roster.isEmpty ? "" : """
+
+
+            People already known by name: \(roster.joined(separator: ", ")). Prefer these \
+            spellings where the transcript is clearly referring to them.
+            """
+
+        let instructions = """
+            You write up meeting notes from a transcript produced by a speech recogniser. \
+            The transcript is imperfect: names may be misspelled and sentences garbled. \
+            Work only from what is there. Never invent a name, a date, an owner or a \
+            decision, and never assign a task to someone the transcript does not name.\(rosterHint)
+            """
+
+        stage = "Writing it up…"
+        let text = try await model.respond(
+            instructions: instructions,
+            prompt: Self.headings + "\n\nTranscript:\n" + body,
+            onChunk: { [weak self] partial in
+                Task { @MainActor in
+                    self?.streamed = partial
+                    self?.stage = "Writing it up… \(partial.split(separator: " ").count) words"
+                }
+            }
+        )
+        progress = 1
+
+        var updated = transcript
+        updated.summary = text
+        updated.summaryDate = Date()
+        HistoryStore.shared.update(updated)
+        Log.app.info("summarise (local model) done in \(Date().timeIntervalSince(started), privacy: .public)s")
+    }
+
+    /// Shared by both backends, so the two produce the same shape of document
+    /// and can be compared directly.
+    static let headings = """
+        Use exactly these headings, in this order. If a section has nothing, write \
+        "None recorded." under it.
+
+        ## In one line
+        One sentence: what this was about and what came of it.
+
+        ## What was discussed
+        Three to five short bullets.
+
+        ## Decisions
+        Bullets. Only what was actually settled.
+
+        ## Action items
+        Bullets formatted "Owner — task". Write "Unassigned" when no owner is named.
+
+        ## Open questions
+        Bullets.
+        """
 
     // MARK: - Observations
 
@@ -190,28 +377,7 @@ final class SummaryService: ObservableObject {
             body = try await condense(observations, toTokens: allowance)
         }
 
-        let prompt = """
-            Use exactly these headings, in this order. If a section has nothing, write \
-            "None recorded." under it.
-
-            ## In one line
-            One sentence: what this was about and what came of it.
-
-            ## What was discussed
-            Three to five short bullets.
-
-            ## Decisions
-            Bullets. Only what was actually settled.
-
-            ## Action items
-            Bullets formatted "Owner — task". Write "Unassigned" when no owner is named.
-
-            ## Open questions
-            Bullets.
-
-            Observations:
-            \(body)
-            """
+        let prompt = Self.headings + "\n\nObservations:\n" + body
 
         return try await run(instructions: instructions, prompt: prompt, expecting: writeUpTokens)
     }

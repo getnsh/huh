@@ -3,8 +3,9 @@
 # Builds the application and assembles a signed bundle.
 #
 # The project is built with SwiftPM and the bundle is assembled here rather than
-# by Xcode, so a full Xcode installation is not required — Command Line Tools are
-# sufficient. An .app bundle is a directory with an Info.plist and a signature.
+# by Xcode — an .app bundle is a directory with an Info.plist and a signature.
+# Xcode is still required, because the Metal shaders the summary model depends on
+# cannot be compiled by Command Line Tools. See the toolchain check below.
 #
 # Usage:
 #   ./scripts/build.sh [debug|release]
@@ -39,9 +40,53 @@ fi
 # shares, synced folders — attach Finder metadata to directories as they are
 # written, which codesign rejects under --strict and which cannot be removed
 # durably while the file lives there.
-STAGE="${HUH_STAGE:-${TMPDIR:-/tmp/}huh-build}"
+# A fixed path under a world-writable /tmp would let another local user
+# pre-create or symlink the directory the bundle is assembled into. TMPDIR is
+# per-user on a normal login, but it is unset under sudo, launchd and some CI.
+if [ -n "${HUH_STAGE:-}" ]; then
+    STAGE="$HUH_STAGE"
+    mkdir -p "$STAGE"
+elif [ -n "${TMPDIR:-}" ]; then
+    STAGE="${TMPDIR}huh-build"
+    mkdir -p "$STAGE"
+else
+    STAGE="$(mktemp -d /tmp/huh-build.XXXXXX)"
+fi
 APP="$STAGE/$BUNDLE.app"
 CONTENTS="$APP/Contents"
+
+# Metal shaders need a toolchain Command Line Tools does not ship.
+#
+# The summary model runs through MLX, whose GPU kernels are Metal source
+# compiled at build time. `metal` lives in Xcode, and since Xcode 26 it is a
+# separately downloaded component even there. Both absences produce errors that
+# name a missing .dia file rather than the actual cause, so they are checked for
+# here and reported plainly.
+if [ -z "${DEVELOPER_DIR:-}" ] && ! xcrun --find metal >/dev/null 2>&1; then
+    for CANDIDATE in /Applications/Xcode.app /Applications/Xcode-beta.app; do
+        if [ -d "$CANDIDATE/Contents/Developer" ]; then
+            export DEVELOPER_DIR="$CANDIDATE/Contents/Developer"
+            echo "==> using $CANDIDATE for the Metal toolchain"
+            break
+        fi
+    done
+fi
+
+if ! xcrun --find metal >/dev/null 2>&1; then
+    cat >&2 <<'MSG'
+!! No Metal compiler found.
+
+   This project builds Metal shaders and needs Xcode, not just Command Line
+   Tools. If Xcode is installed, the Metal toolchain is a separate download:
+
+       xcodebuild -downloadComponent MetalToolchain
+
+   Then build again, or point DEVELOPER_DIR at your Xcode:
+
+       DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/build.sh
+MSG
+    exit 1
+fi
 
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG"
@@ -54,6 +99,21 @@ rm -rf "$APP"
 mkdir -p "$STAGE" "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
 cp "$BIN" "$CONTENTS/MacOS/$NAME"
+
+# Resource bundles must travel with the binary.
+#
+# SwiftPM emits one .bundle per dependency that ships resources, and they sit
+# beside the executable in the build directory, which is why running from there
+# works. Copying only the executable into the app leaves them behind, and the
+# failure is deferred until the moment the resource is needed: MLX reports
+# "Failed to load the default metallib" the first time a summary runs, long
+# after a build and launch that both looked healthy.
+BUNDLE_SRC="$(dirname "$BIN")"
+for RESOURCE in "$BUNDLE_SRC"/*.bundle; do
+    [ -e "$RESOURCE" ] || continue
+    echo "==> bundling $(basename "$RESOURCE")"
+    cp -R "$RESOURCE" "$CONTENTS/Resources/"
+done
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/PrivacyInfo.xcprivacy" "$CONTENTS/Resources/PrivacyInfo.xcprivacy"
 [ -f "$ROOT/Resources/AppIcon.icns" ] && cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/"
