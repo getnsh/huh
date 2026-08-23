@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>huh?</string>
+    <key>CFBundleDisplayName</key>
+    <string>huh?</string>
+    <!-- The executable name stays filesystem-safe; only display strings carry
+         the "?" character. -->
+    <key>CFBundleExecutable</key>
+    <string>Huh</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.getnsh.huh</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <key>NSSupportsSuddenTermination</key>
+    <false/>
+
+    <!-- Contains no encryption beyond what macOS provides. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 getnsh. Released under the MIT License.</string>
+
+    <!-- Purpose strings. Each maps to exactly one capability the application
+         cannot function without; see PRIVACY.md for the full rationale. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>huh? records audio while you hold the push-to-talk key so it can transcribe your speech on this Mac.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>huh? transcribes speech using Apple's on-device speech models. Audio is not sent anywhere.</string>
+</dict>
+</plist>

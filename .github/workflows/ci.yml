@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify
+    # The project targets macOS 26. Adjust when a matching runner image is
+    # generally available; until then this job is expected to be run locally.
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          swift --version
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Verify correction engine
+        run: ./scripts/verify-corrections.sh
+
+      - name: Verify cleanup
+        run: ./scripts/verify-cleanup.sh
+
+      - name: Verify plausibility filter
+        run: ./scripts/verify-plausibility.sh
+
+      - name: Assemble and sign bundle
+        run: ./scripts/build.sh release
+
+      - name: Confirm Hardened Runtime and entitlements
+        run: |
+          APP="${TMPDIR:-/tmp/}huh-build/huh?.app"
+          codesign --verify --strict --verbose=2 "$APP"
+          codesign -d --verbose=2 "$APP" 2>&1 | grep -q 'runtime' \
+            || { echo "Hardened Runtime flag missing"; exit 1; }
+          codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -p -

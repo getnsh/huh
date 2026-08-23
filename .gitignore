@@ -1,0 +1,27 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Build products
+dist/
+*.dSYM/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# Logs and scratch
+*.log
+
+# Signing material
+*.p12
+*.cer
+*.provisionprofile

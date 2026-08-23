@@ -1,0 +1,64 @@
+# Contributing
+
+## Requirements
+
+- macOS 26 or later
+- Xcode Command Line Tools (`xcode-select --install`)
+
+A full Xcode installation is not required. The project builds with SwiftPM and
+assembles its own bundle.
+
+One consequence worth knowing: Command Line Tools do not ship
+`libSwiftUIMacros.dylib`, so `@State`, `@StateObject` and `@FocusState` will not
+compile. View state is held in `ObservableObject` types instead — see
+`UI/UIState.swift`. Code that introduces those property wrappers will build under
+Xcode and fail under Command Line Tools.
+
+## Build and run
+
+```bash
+./scripts/install.sh      # build and install to /Applications
+./scripts/test.sh         # run all verification suites
+./scripts/make-icon.sh    # regenerate the app icon
+```
+
+For local development, create a stable signing certificate once so that macOS
+permission grants survive rebuilds:
+
+```bash
+sudo ./scripts/make-signing-cert.sh
+SIGN_ID="Huh Dev" ./scripts/install.sh
+```
+
+Without this, the ad-hoc signature changes on every build and Microphone and
+Accessibility must be granted again each time.
+
+## Tests
+
+Suites compile the shipping sources directly and assert against them; there are
+no mocks and no duplicated logic.
+
+| Suite | Covers |
+|---|---|
+| `verify-corrections.sh` | Matching, separator tolerance, precedence, non-overlap, safety warnings |
+| `verify-cleanup.sh` | Disfluency removal, and the words it must not touch |
+| `verify-plausibility.sh` | Edit-distance rejection of implausible corrections |
+
+Add a case to the relevant suite for any change to matching, cleanup or
+validation behaviour. The negative cases matter as much as the positive ones:
+most of these suites exist because a rule was once too broad.
+
+## Style
+
+- Comments explain *why*, not *what*. A comment that restates the code is noise.
+- Where a decision has a non-obvious rationale — an API that behaves
+  unexpectedly, a threshold chosen from measurement — record it at the decision
+  site.
+- No `TODO` or `FIXME` in committed code. Open an issue instead.
+- Keep user-facing strings in the view that renders them; keep product naming in
+  `Core/Branding.swift`.
+
+## Pull requests
+
+State what changed and why. If behaviour changed, say how it was verified. If a
+threshold or heuristic changed, include the measurement that motivated it.

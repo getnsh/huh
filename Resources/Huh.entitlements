@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Minimum viable entitlement set for a dictation utility running under the
+        Hardened Runtime.
+
+        The App Sandbox is intentionally not enabled. The application's core
+        function requires the Accessibility API to read the focused element of
+        another process and insert text into it, which a sandboxed process
+        cannot do. This is the same constraint that applies to text expanders,
+        window managers and clipboard utilities.
+
+        No JIT, no unsigned executable memory, no library validation exemption,
+        no debugger entitlement. Nothing here weakens the Hardened Runtime.
+    -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>
