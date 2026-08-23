@@ -210,16 +210,29 @@ final class TranscriptChat: ObservableObject {
         let passages = self.passages(in: transcript)
         guard !passages.isEmpty else { return [] }
 
-        let terms = Set(SearchIndex.tokenise(question)).subtracting(stopWords)
-        guard !terms.isEmpty else {
-            // A question with no content words ("what happened?") retrieves the
-            // opening of the recording, which is the best available answer to it.
-            return Array(passages.prefix(maxPassages))
-        }
+        let asked = Set(SearchIndex.tokenise(question)).subtracting(stopWords)
+        guard !asked.isEmpty else { return spread(passages) }
 
-        // Inverse document frequency, so a word that appears in every passage
+        // Expand the question before scoring.
+        //
+        // "What was decided?" is a question about meaning, and a lexical index
+        // answers questions about words. Meetings almost never contain the word
+        // "decided" -- people say "let's go with", "that works", "we'll do
+        // that" -- so the literal term matches nothing and the honest-looking
+        // result is a refusal on the one question everybody asks first.
+        // Related terms carry less weight than the word actually typed.
+        var weights: [String: Double] = [:]
+        for term in asked {
+            weights[term] = 1
+            for related in expansions[term] ?? [] where weights[related] == nil {
+                weights[related] = relatedWeight
+            }
+        }
+        let terms = Set(weights.keys)
+
+        // Inverse document frequency, so a word appearing in every passage
         // contributes nothing and a rare one dominates. This is what makes a
-        // name or a product the deciding term in a question that contains one.
+        // name or a product the deciding term in a question containing one.
         var frequency: [String: Int] = [:]
         var tokenised: [Set<String>] = []
         for passage in passages {
@@ -234,16 +247,27 @@ final class TranscriptChat: ObservableObject {
             var score = 0.0
             for term in terms where tokens.contains(term) {
                 let hits = Double(frequency[term] ?? 1)
-                score += log(1 + total / hits)
+                score += log(1 + total / hits) * (weights[term] ?? 1)
             }
             // Partial credit for a prefix match, so "decid" finds "decided".
+            // Both sides need a real length: without the floor, a two-letter
+            // token matched the prefix of almost any word.
             for term in terms where !tokens.contains(term) && term.count >= 5 {
-                if tokens.contains(where: { $0.hasPrefix(term) || term.hasPrefix($0) }) { score += 0.4 }
+                let near = tokens.contains {
+                    $0.count >= 4 && ($0.hasPrefix(term) || term.hasPrefix($0))
+                }
+                if near { score += 0.4 * (weights[term] ?? 1) }
             }
             if score > 0 { scored.append((index, score)) }
         }
 
-        guard !scored.isEmpty else { return [] }
+        // Nothing matched. Send a spread of the recording rather than refusing.
+        //
+        // A miss here means retrieval failed, which is not the same as the
+        // recording having no answer -- and only the model can tell those
+        // apart. It is instructed to admit when the excerpts fall short, so the
+        // worst case is the same refusal arrived at honestly.
+        guard !scored.isEmpty else { return spread(passages) }
         scored.sort { $0.score > $1.score }
 
         // Restore chronological order: an answer assembled from passages in
@@ -254,6 +278,44 @@ final class TranscriptChat: ObservableObject {
             .sorted()
             .map { passages[$0] }
     }
+
+    /// An even spread across the whole recording, used when retrieval has
+    /// nothing to go on. Sampling beats taking the opening: decisions and
+    /// commitments cluster at the end of a meeting, not the start.
+    static func spread(_ passages: [Passage]) -> [Passage] {
+        guard passages.count > maxPassages else { return passages }
+        let step = Double(passages.count) / Double(maxPassages)
+        return (0..<maxPassages).map { passages[min(passages.count - 1, Int(Double($0) * step))] }
+    }
+
+    /// Weight given to a term the asker did not type. Below the weight of a
+    /// literal match, so a passage containing the actual word still wins.
+    static let relatedWeight = 0.55
+
+    /// Words that mean one thing to someone asking a question and another to an
+    /// index. Every member of a cluster retrieves the rest.
+    static let synonymClusters: [[String]] = [
+        ["decided", "decide", "decision", "decisions", "agreed", "agree",
+         "settled", "confirmed", "conclusion", "concluded"],
+        ["action", "actions", "task", "tasks", "todo", "assigned", "owner",
+         "responsible", "deadline", "deliverable"],
+        ["blocker", "blockers", "blocked", "blocking", "stuck", "issue",
+         "issues", "problem", "problems", "risk", "risks"],
+        ["next", "steps", "followup", "upcoming", "afterwards", "plan", "plans"],
+        ["concern", "concerns", "worried", "worry", "unresolved", "open"],
+        ["timeline", "schedule", "date", "dates", "when", "week", "month"]
+    ]
+
+    static let expansions: [String: Set<String>] = {
+        var out: [String: Set<String>] = [:]
+        for cluster in synonymClusters {
+            let all = Set(cluster)
+            for word in cluster {
+                out[word, default: []].formUnion(all.subtracting([word]))
+            }
+        }
+        return out
+    }()
 
     static func passages(in transcript: Transcript) -> [Passage] {
         guard !transcript.segments.isEmpty else {
