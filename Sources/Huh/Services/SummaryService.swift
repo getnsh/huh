@@ -38,6 +38,19 @@ final class SummaryService: ObservableObject {
     /// Which model is doing the work, for the caption. It used to claim Apple
     /// unconditionally, which became untrue the moment a second backend existed.
     @Published private(set) var runningEngine: SummaryEngineID = .apple
+
+    /// Set when a transcript is too long for Apple's model to read in one pass
+    /// and the choice has not been made yet. The interface presents the options
+    /// rather than quietly producing a worse summary.
+    @Published var pendingChoice: PendingChoice?
+
+    struct PendingChoice: Identifiable, Equatable {
+        var id: UUID { transcript.id }
+        var transcript: Transcript
+        /// How many separate reads Apple's model would need.
+        var pieces: Int
+        var words: Int
+    }
     @Published private(set) var stage: String = ""
     @Published private(set) var failure: String?
 
@@ -66,9 +79,73 @@ final class SummaryService: ObservableObject {
 
     func dismissFailure() { failure = nil }
 
+    /// Remembered so the question is asked once, not before every long
+    /// transcript.
+    static var hasDismissedChoice: Bool {
+        get { UserDefaults.standard.bool(forKey: "dismissedSummaryChoice") }
+        set { UserDefaults.standard.set(newValue, forKey: "dismissedSummaryChoice") }
+    }
+
+    /// Accepts the offer: switch to the local model and summarise. The download
+    /// happens inside the run, where its progress is already reported.
+    func acceptLocalModel() {
+        guard let choice = pendingChoice else { return }
+        AppSettings.shared.summaryEngine = .qwen
+        run(choice.transcript)
+    }
+
+    /// Proceed with Apple's model, in pieces, and stop asking.
+    func continueWithApple(remember: Bool) {
+        guard let choice = pendingChoice else { return }
+        if remember { Self.hasDismissedChoice = true }
+        run(choice.transcript)
+    }
+
+    func cancelChoice() { pendingChoice = nil }
+
     // MARK: - Summarise
 
+    /// Whether Apple's model would have to read this transcript in pieces.
+    ///
+    /// The window is 4,096 tokens for instructions, prompt and response
+    /// together, so anything much past a couple of thousand words cannot be
+    /// read in one pass. Stitching the pieces together is what loses material,
+    /// and it happens silently — which is the reason to say so up front.
+    static func piecesRequired(for transcript: Transcript) -> Int {
+        let words = transcript.wordCount
+        guard words > 0 else { return 1 }
+        let chunks = Int(ceil(Double(words) / 600.0))
+        return max(1, chunks)
+    }
+
+    static func needsPieces(_ transcript: Transcript) -> Bool {
+        piecesRequired(for: transcript) > 1
+    }
+
+    /// Entry point from the interface. Offers the choice once when it matters,
+    /// then gets out of the way.
     func summarise(_ transcript: Transcript) {
+        guard runningFor == nil else { return }
+
+        // Also offered when Apple Intelligence is unavailable: the download and
+        // the hand-off both work without it, so refusing outright would hide
+        // the two routes that would have succeeded.
+        if AppSettings.shared.summaryEngine == .apple,
+           Self.needsPieces(transcript),
+           !Self.hasDismissedChoice || !ModelAvailability.shared.isReady {
+            pendingChoice = PendingChoice(
+                transcript: transcript,
+                pieces: Self.piecesRequired(for: transcript),
+                words: transcript.wordCount
+            )
+            return
+        }
+        run(transcript)
+    }
+
+    /// Proceed with whatever backend is selected, choice already made.
+    func run(_ transcript: Transcript) {
+        pendingChoice = nil
         guard runningFor == nil, isAvailable else { return }
 
         runningFor = transcript.id

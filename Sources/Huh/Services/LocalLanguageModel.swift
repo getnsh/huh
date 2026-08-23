@@ -57,6 +57,11 @@ final class LocalLanguageModel: ObservableObject {
 
     var isReady: Bool { container != nil }
 
+    var isDownloading: Bool {
+        if case .downloading = state { return true }
+        return state == .loading
+    }
+
     /// Human-readable state, for Settings.
     var statusText: String {
         switch state {

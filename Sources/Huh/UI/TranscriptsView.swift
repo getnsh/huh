@@ -227,6 +227,13 @@ private struct TranscriptDetail: View {
                             .transition(.opacity.combined(with: .offset(y: -8)))
                     }
 
+                    if let choice = summaries.pendingChoice, choice.transcript.id == transcript.id {
+                        SummaryChoiceCard(choice: choice)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 14)
+                            .padding(.bottom, 4)
+                    }
+
                     if isSummarising || !transcript.summary.isEmpty {
                         SummaryCard(transcript: transcript, running: isSummarising)
                             .padding(.horizontal, 16)
@@ -348,7 +355,10 @@ private struct TranscriptDetail: View {
             // Pressing it either summarises or explains what is missing; a
             // disabled button communicates neither.
             Button(transcript.summary.isEmpty ? "Summarise" : "Redo Summary") {
-                if intelligence.isReady {
+                // Apple Intelligence is no longer the only route to a summary,
+                // so its absence is a reason to offer the alternatives rather
+                // than to refuse.
+                if summaries.isAvailable || SummaryService.needsPieces(transcript) {
                     summaries.summarise(transcript)
                 } else {
                     ui.showingIntelligenceNotice = true
