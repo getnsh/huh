@@ -9,6 +9,23 @@ struct SettingsView: View {
     @ObservedObject private var devices = AudioDevices.shared
 
     var body: some View {
+        // Scrolling, not a taller window.
+        //
+        // The content was previously pinned to a fixed 520pt height, so every
+        // group added since -- Microphone among them -- was clipped off the
+        // bottom with no indication anything was missing. A window tall enough
+        // for all of it would not fit a laptop display.
+        ScrollView {
+            content
+        }
+        .frame(width: 520, height: 560)
+        .background(Theme.base)
+        .scrollBounceBehavior(.basedOnSize)
+        .focusEffectDisabled()
+        .preferredColorScheme(.dark)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 22) {
             group("Push-to-talk") {
                 row("Key") {
@@ -152,12 +169,9 @@ struct SettingsView: View {
                 note("Electron apps (Slack, VS Code, Discord) generally need the paste path. Native apps take the Accessibility path cleanly.")
             }
 
-            Spacer()
         }
         .padding(26)
-        .frame(width: 520, height: 520, alignment: .topLeading)
-        .background(Theme.base)
-        .preferredColorScheme(.dark)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func group<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
