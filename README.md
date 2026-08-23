@@ -111,17 +111,41 @@ Intelligence, and macOS 27 drops Intel entirely. See
 
 ## Install
 
+### Download it
+
+Grab the latest zip from [Releases](https://github.com/getnsh/huh/releases), then:
+
 ```bash
-git clone https://github.com/getnsh/huh.git
-cd huh
-./scripts/install.sh
+cd ~/Downloads
+unzip huh-*.zip
+xattr -cr "huh-0.3.0/huh?.app"
+mv "huh-0.3.0/huh?.app" /Applications/
 open "/Applications/huh?.app"
 ```
 
-Builds are signed ad hoc with the Hardened Runtime enabled, which is trusted on
-the machine that produced them. Build on the Mac you intend to run it on — a
-bundle copied from elsewhere is rejected by Gatekeeper. See
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The `xattr` step is required. Builds are signed on the machine that produced
+them rather than by Apple, so macOS refuses to open the app until the quarantine
+flag it attached on download is cleared. Nothing else is needed — no Xcode, no
+Swift, no build.
+
+`uninstall.sh` is in the same folder. Run it bare to remove the app and keep your
+data, or with `--all` to delete the transcripts and dictionaries too.
+
+### Or build it yourself
+
+Only if you want to change something. This needs **Xcode** — not just the
+Command Line Tools — plus the Metal toolchain, because the optional summary
+model compiles Metal shaders at build time:
+
+```bash
+xcodebuild -downloadComponent MetalToolchain   # once, ~840 MB
+git clone https://github.com/getnsh/huh.git
+cd huh
+./scripts/install.sh
+```
+
+Roughly two minutes from a clean clone. `build.sh` locates Xcode itself and
+stops with a clear message if the Metal toolchain is missing.
 
 ### Permissions
 
