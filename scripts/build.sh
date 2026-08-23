@@ -43,6 +43,39 @@ STAGE="${HUH_STAGE:-${TMPDIR:-/tmp/}huh-build}"
 APP="$STAGE/$BUNDLE.app"
 CONTENTS="$APP/Contents"
 
+# Metal shaders need a toolchain Command Line Tools does not ship.
+#
+# The summary model runs through MLX, whose GPU kernels are Metal source
+# compiled at build time. `metal` lives in Xcode, and since Xcode 26 it is a
+# separately downloaded component even there. Both absences produce errors that
+# name a missing .dia file rather than the actual cause, so they are checked for
+# here and reported plainly.
+if [ -z "${DEVELOPER_DIR:-}" ] && ! xcrun --find metal >/dev/null 2>&1; then
+    for CANDIDATE in /Applications/Xcode.app /Applications/Xcode-beta.app; do
+        if [ -d "$CANDIDATE/Contents/Developer" ]; then
+            export DEVELOPER_DIR="$CANDIDATE/Contents/Developer"
+            echo "==> using $CANDIDATE for the Metal toolchain"
+            break
+        fi
+    done
+fi
+
+if ! xcrun --find metal >/dev/null 2>&1; then
+    cat >&2 <<'MSG'
+!! No Metal compiler found.
+
+   This project builds Metal shaders and needs Xcode, not just Command Line
+   Tools. If Xcode is installed, the Metal toolchain is a separate download:
+
+       xcodebuild -downloadComponent MetalToolchain
+
+   Then build again, or point DEVELOPER_DIR at your Xcode:
+
+       DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/build.sh
+MSG
+    exit 1
+fi
+
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG"
 

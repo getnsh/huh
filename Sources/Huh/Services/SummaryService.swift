@@ -48,7 +48,13 @@ final class SummaryService: ObservableObject {
 
     private init() {}
 
-    var isAvailable: Bool { ModelAvailability.shared.isReady }
+    /// Apple's model needs Apple Intelligence enabled; the downloaded one does
+    /// not, so with it selected summaries work on machines that have no Apple
+    /// Intelligence at all.
+    var isAvailable: Bool {
+        AppSettings.shared.summaryEngine == .qwen || ModelAvailability.shared.isReady
+    }
+
     var isRunning: Bool { runningFor != nil }
 
     func dismissFailure() { failure = nil }
@@ -66,6 +72,13 @@ final class SummaryService: ObservableObject {
         Task {
             let started = Date()
             do {
+                if AppSettings.shared.summaryEngine == .qwen {
+                    try await summariseWholeTranscript(transcript, started: started)
+                    runningFor = nil
+                    stage = ""
+                    return
+                }
+
                 let chunks = Self.chunk(transcript, wordsPerChunk: wordsPerChunk)
                 Log.app.info("summarise: \(chunks.count, privacy: .public) chunks")
 
@@ -98,6 +111,71 @@ final class SummaryService: ObservableObject {
             stage = ""
         }
     }
+
+    // MARK: - Whole-transcript path
+
+    /// The downloaded model holds an hour of speech at once, so there is no
+    /// chunking, no consolidation and no second pass. Every seam the staged
+    /// pipeline has to work around simply does not exist here.
+    private func summariseWholeTranscript(_ transcript: Transcript, started: Date) async throws {
+        stage = "Reading the whole meeting…"
+        progress = 0.15
+
+        let body = transcript.segments.isEmpty
+            ? transcript.text
+            : transcript.segments.map(\.text).joined(separator: " ")
+
+        let roster = PeopleStore.shared.names.prefix(20)
+        let rosterHint = roster.isEmpty ? "" : """
+
+
+            People already known by name: \(roster.joined(separator: ", ")). Prefer these \
+            spellings where the transcript is clearly referring to them.
+            """
+
+        let instructions = """
+            You write up meeting notes from a transcript produced by a speech recogniser. \
+            The transcript is imperfect: names may be misspelled and sentences garbled. \
+            Work only from what is there. Never invent a name, a date, an owner or a \
+            decision, and never assign a task to someone the transcript does not name.\(rosterHint)
+            """
+
+        stage = "Writing it up…"
+        progress = 0.5
+        let text = try await LocalLanguageModel.shared.respond(
+            instructions: instructions,
+            prompt: Self.headings + "\n\nTranscript:\n" + body
+        )
+        progress = 1
+
+        var updated = transcript
+        updated.summary = text
+        updated.summaryDate = Date()
+        HistoryStore.shared.update(updated)
+        Log.app.info("summarise (local model) done in \(Date().timeIntervalSince(started), privacy: .public)s")
+    }
+
+    /// Shared by both backends, so the two produce the same shape of document
+    /// and can be compared directly.
+    static let headings = """
+        Use exactly these headings, in this order. If a section has nothing, write \
+        "None recorded." under it.
+
+        ## In one line
+        One sentence: what this was about and what came of it.
+
+        ## What was discussed
+        Three to five short bullets.
+
+        ## Decisions
+        Bullets. Only what was actually settled.
+
+        ## Action items
+        Bullets formatted "Owner — task". Write "Unassigned" when no owner is named.
+
+        ## Open questions
+        Bullets.
+        """
 
     // MARK: - Observations
 
@@ -190,28 +268,7 @@ final class SummaryService: ObservableObject {
             body = try await condense(observations, toTokens: allowance)
         }
 
-        let prompt = """
-            Use exactly these headings, in this order. If a section has nothing, write \
-            "None recorded." under it.
-
-            ## In one line
-            One sentence: what this was about and what came of it.
-
-            ## What was discussed
-            Three to five short bullets.
-
-            ## Decisions
-            Bullets. Only what was actually settled.
-
-            ## Action items
-            Bullets formatted "Owner — task". Write "Unassigned" when no owner is named.
-
-            ## Open questions
-            Bullets.
-
-            Observations:
-            \(body)
-            """
+        let prompt = Self.headings + "\n\nObservations:\n" + body
 
         return try await run(instructions: instructions, prompt: prompt, expecting: writeUpTokens)
     }

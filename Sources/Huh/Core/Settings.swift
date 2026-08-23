@@ -40,6 +40,37 @@ enum EngineID: String, CaseIterable, Identifiable, Codable {
     static var available: [EngineID] { allCases.filter(\.isAvailable) }
 }
 
+/// Which model writes meeting summaries.
+///
+/// Separate from `EngineID`, which selects a speech recogniser. The two are
+/// unrelated choices: transcription accuracy and summary quality are different
+/// problems solved by different models, and someone may reasonably want the
+/// system recogniser with a better writer, or the reverse.
+enum SummaryEngineID: String, CaseIterable, Identifiable, Codable {
+    case apple
+    case qwen
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .apple: return "Apple on-device (fast)"
+        case .qwen:  return "Qwen3 4B (better, downloads)"
+        }
+    }
+
+    var note: String {
+        switch self {
+        case .apple:
+            return "Supplied by macOS. No download. Its 4,096-token limit means a long meeting is read in pieces and stitched together, which loses some detail at the seams."
+        case .qwen:
+            return "Downloads about \(LocalLanguageModel.downloadSize) once, then runs offline like everything else. Reads a whole meeting in one pass rather than in pieces, so the summary is written by something that has seen all of it. Slower, and uses more memory while it runs."
+        }
+    }
+
+    var requiresDownload: Bool { self == .qwen }
+}
+
 enum TriggerMode: String, CaseIterable, Identifiable, Codable {
     case hold          // push-to-talk: transcribe while the key is down
     case toggle        // tap to start, tap to stop
@@ -82,6 +113,11 @@ final class AppSettings: ObservableObject {
     @Published var cleanupLevel: CleanupLevel {
         didSet { store.set(cleanupLevel.rawValue, forKey: "cleanupLevel") }
     }
+    /// Which model writes summaries. Defaults to Apple's, so nothing downloads
+    /// unless the choice is made deliberately.
+    @Published var summaryEngine: SummaryEngineID {
+        didSet { store.set(summaryEngine.rawValue, forKey: "summaryEngine") }
+    }
     /// Whether the login-item prompt has been shown. Presented once only.
     @Published var hasAskedLaunchAtLogin: Bool {
         didSet { store.set(hasAskedLaunchAtLogin, forKey: "hasAskedLaunchAtLogin") }
@@ -101,6 +137,7 @@ final class AppSettings: ObservableObject {
         localeIdentifier = store.string(forKey: "localeIdentifier") ?? Locale.current.identifier
         playFeedbackSounds = store.object(forKey: "playFeedbackSounds") as? Bool ?? true
         cleanupLevel = CleanupLevel(rawValue: store.string(forKey: "cleanupLevel") ?? "") ?? .standard
+        summaryEngine = SummaryEngineID(rawValue: store.string(forKey: "summaryEngine") ?? "") ?? .apple
         hasAskedLaunchAtLogin = store.bool(forKey: "hasAskedLaunchAtLogin")
     }
 
