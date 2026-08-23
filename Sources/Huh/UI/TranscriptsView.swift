@@ -234,15 +234,6 @@ private struct TranscriptDetail: View {
                             .padding(.bottom, 4)
                     }
 
-                    // Directly under the summary: the summary answers "what was
-                    // this", and this answers everything after that.
-                    if !transcript.text.trimmed.isEmpty {
-                        TranscriptChatCard(transcript: transcript)
-                            .padding(.horizontal, 16)
-                            .padding(.top, transcript.summary.isEmpty && !isSummarising ? 14 : 8)
-                            .padding(.bottom, 4)
-                    }
-
                     if let failure = summaries.failure, isSummarisingContext {
                         FailureBanner(message: failure, onDismiss: { summaries.dismissFailure() })
                             .padding(.horizontal, 16)

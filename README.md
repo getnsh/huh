@@ -70,13 +70,6 @@ extracts labelled observations from each chunk, duplicates are merged in code
 rather than by a model, and a single final pass writes it up. Participants are
 assembled from the transcript itself, never generated.
 
-**Ask about a recording**
-A conversation about one transcript, beneath its summary. Each question retrieves
-the passages that bear on it and sends only those, since a transcript is many
-times larger than the model's context window. Answers cite the timecodes they
-came from, and a question the recording cannot answer gets a plain admission
-rather than a guess.
-
 **Search**
 Full-text search across every transcript using an inverted index. Results for
 imported recordings are timecoded segments rather than whole documents.

@@ -141,13 +141,12 @@ anticipated response are accounted for, and whether an assembled request fits.
 Prompts are sized before they are sent, so an oversized prompt is caught by the
 code that built it rather than by the model.
 
-Three strategies follow from the limit, one per feature:
+Two strategies follow from the limit, one per feature:
 
 | Feature | Strategy |
 |---|---|
 | Reading a transcript for names and errors | Passages, most of which never reach the model |
 | Summarising | Observe, consolidate in code, then write once |
-| Asking questions about a recording | Retrieval — only the passages that bear on the question |
 
 ## The learning pipeline
 
@@ -301,31 +300,6 @@ spells them. A model asked who attended a meeting will supply names.
 A chunk that overflows despite budgeting is bisected and retried; an observation
 list too long for the writing pass is condensed in batches rather than truncated,
 so the end of a long meeting is not silently lost.
-
-## Asking questions about a transcript
-
-`TranscriptChat` answers questions about one recording. Handing the model the
-transcript is not an option, so each question retrieves the passages that bear on
-it — Apple's documented approach for exactly this case.
-
-Retrieval is lexical rather than vector-based: passages of 110 words are scored
-by inverse document frequency over the transcript's own vocabulary, so a word
-appearing in every passage contributes nothing and a rare one dominates. That is
-what makes a name or a product the deciding term in a question containing one. No
-embedding model, no prepared index, no download. Selected passages are returned
-to chronological order before assembly, since an answer built from passages in
-relevance order reads as though the meeting happened backwards.
-
-Each question opens a fresh session with the previous exchange restated in the
-prompt. A persistent session would accumulate every excerpt from every earlier
-question and overflow within a few turns.
-
-Two guards keep answers honest. If nothing in the transcript matches the
-question, no request is made. If the model is given passages that do not contain
-the answer, it is instructed to reply in a form this code recognises, which is
-replaced with a plain admission. For a local model working from one recording
-that is the correct outcome, and much better than a confident invention — one
-fabricated answer makes every other answer untrustworthy.
 
 ## Search
 

@@ -16,11 +16,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filed as a person, added as a correction, or rejected — is recorded in
   `decisions.json` and consulted before anything is surfaced. The same word is
   never proposed twice.
-- **Ask about a transcript.** A conversation beneath the summary, answered from
-  the recording alone. Each question retrieves the passages that bear on it by
-  inverse document frequency and sends only those. Answers cite the timecodes
-  they drew on; a question the recording cannot answer is refused in plain terms
-  rather than guessed at.
 - `TokenBudget`, which makes the on-device model's 4,096-token context window
   explicit. Prompts are sized before they are sent rather than after they fail.
 - `verify-extraction.sh`, covering model reply parsing, validation, collapse
@@ -53,15 +48,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   transcript's analysis mark, which had the effect of re-asking every question
   that had already been answered.
 
+### Removed
+
+- Transcript question-and-answer. It was never what this application is for, and
+  keeping it meant carrying a retrieval system, a synonym table and a scope
+  guard to serve a feature adjacent to the point. Summaries stay.
+
 ### Fixed
 
-- Asking a transcript a question refused outright whenever no passage matched
-  the question word-for-word, which is most of the time: "What was decided?"
-  never matched, because meetings contain "let us go with" and "that works", not
-  "decided". Retrieval now expands a question into related terms, and a miss
-  falls back to a spread of the recording rather than a refusal — the model is
-  already instructed to admit when the excerpts fall short, so the worst case is
-  the same answer reached honestly.
 - Settings was pinned to a fixed height, so every group added after it was
   written — Microphone included — was clipped off the bottom with nothing to
   indicate content was missing. It scrolls now.
