@@ -317,3 +317,43 @@ struct IntelligenceNotice: View {
         }
     }
 }
+
+/// A bar that shows work is happening without claiming to know how much is
+/// left. Used wherever the honest answer is "running", such as a language model
+/// generating text, where any percentage would be invented.
+struct IndeterminateBar: View {
+    @ObservedObject private var motion = Motion.shared
+
+    private final class Motion: ObservableObject {
+        static let shared = Motion()
+        @Published var phase: CGFloat = 0
+        private var timer: Timer?
+        private init() {
+            // A timer rather than `repeatForever`, which cannot be driven from
+            // an ObservableObject without the animation property wrappers this
+            // toolchain does not provide.
+            timer = Timer.scheduledTimer(withTimeInterval: 1.1, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    withAnimation(.easeInOut(duration: 1.05)) {
+                        self.phase = self.phase == 0 ? 1 : 0
+                    }
+                }
+            }
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width * 0.35
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.hover)
+                Capsule()
+                    .fill(Theme.live)
+                    .frame(width: width)
+                    .offset(x: motion.phase * (geo.size.width - width))
+            }
+        }
+        .frame(height: 3)
+    }
+}

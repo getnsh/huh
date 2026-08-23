@@ -30,7 +30,14 @@ final class SummaryService: ObservableObject {
     static let shared = SummaryService()
 
     @Published private(set) var runningFor: UUID?
-    @Published private(set) var progress: Double = 0
+    /// Nil while the work has no honest percentage. A bar that sits at a made-up
+    /// number for a minute is worse than no bar.
+    @Published private(set) var progress: Double?
+    /// Text as the model writes it, so a long generation is visibly working.
+    @Published private(set) var streamed: String = ""
+    /// Which model is doing the work, for the caption. It used to claim Apple
+    /// unconditionally, which became untrue the moment a second backend existed.
+    @Published private(set) var runningEngine: SummaryEngineID = .apple
     @Published private(set) var stage: String = ""
     @Published private(set) var failure: String?
 
@@ -66,6 +73,8 @@ final class SummaryService: ObservableObject {
 
         runningFor = transcript.id
         progress = 0
+        streamed = ""
+        runningEngine = AppSettings.shared.summaryEngine
         failure = nil
         stage = "Reading the transcript…"
 
@@ -109,6 +118,7 @@ final class SummaryService: ObservableObject {
             }
             runningFor = nil
             stage = ""
+            streamed = ""
         }
     }
 
@@ -118,8 +128,25 @@ final class SummaryService: ObservableObject {
     /// chunking, no consolidation and no second pass. Every seam the staged
     /// pipeline has to work around simply does not exist here.
     private func summariseWholeTranscript(_ transcript: Transcript, started: Date) async throws {
+        // The model may not be on disk yet. Downloading is the only part of this
+        // with a real percentage, so it owns the progress bar; everything after
+        // reports what it is doing instead of pretending to measure it.
+        let model = LocalLanguageModel.shared
+        if !model.isReady {
+            progress = nil
+            let watch = Task { [weak self] in
+                while !Task.isCancelled {
+                    self?.stage = model.statusText
+                    self?.progress = model.state.fraction
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                }
+            }
+            defer { watch.cancel() }
+            _ = try await model.load()
+        }
+
         stage = "Reading the whole meeting…"
-        progress = 0.15
+        progress = nil
 
         let body = transcript.segments.isEmpty
             ? transcript.text
@@ -141,10 +168,15 @@ final class SummaryService: ObservableObject {
             """
 
         stage = "Writing it up…"
-        progress = 0.5
-        let text = try await LocalLanguageModel.shared.respond(
+        let text = try await model.respond(
             instructions: instructions,
-            prompt: Self.headings + "\n\nTranscript:\n" + body
+            prompt: Self.headings + "\n\nTranscript:\n" + body,
+            onChunk: { [weak self] partial in
+                Task { @MainActor in
+                    self?.streamed = partial
+                    self?.stage = "Writing it up… \(partial.split(separator: " ").count) words"
+                }
+            }
         )
         progress = 1
 

@@ -26,12 +26,21 @@ final class LocalLanguageModel: ObservableObject {
 
     enum State: Equatable {
         case notLoaded
-        case downloading(Double)
+        /// Fraction complete, and a human-readable size so a multi-gigabyte
+        /// fetch is never a bare spinner.
+        case downloading(Double, String)
         case loading
         case ready
         case failed(String)
 
         var isReady: Bool { self == .ready }
+
+        /// Determinate only while downloading. Generation has no meaningful
+        /// percentage, and inventing one is worse than admitting it.
+        var fraction: Double? {
+            if case .downloading(let value, _) = self { return value }
+            return nil
+        }
     }
 
     @Published private(set) var state: State = .notLoaded
@@ -53,8 +62,8 @@ final class LocalLanguageModel: ObservableObject {
         switch state {
         case .notLoaded:
             return "Not downloaded. About \(Self.downloadSize), fetched once when a summary first needs it."
-        case .downloading(let fraction):
-            return "Downloading… \(Int((fraction * 100).rounded()))%"
+        case .downloading(let fraction, let detail):
+            return "Downloading \(Self.displayName) — \(Int((fraction * 100).rounded()))%\(detail)"
         case .loading:
             return "Loading into memory…"
         case .ready:
@@ -74,11 +83,19 @@ final class LocalLanguageModel: ObservableObject {
         if let existing = loadTask { return try await existing.value }
 
         let task = Task { () throws -> ModelContainer in
-            state = .downloading(0)
+            state = .downloading(0, "")
             do {
                 let loaded = try await #huggingFaceLoadModelContainer(
-                    configuration: LLMRegistry.qwen3_4b_4bit
+                    configuration: LLMRegistry.qwen3_4b_4bit,
+                    progressHandler: { progress in
+                        // Delivered off the main actor, and often several times
+                        // a second.
+                        Task { @MainActor in
+                            LocalLanguageModel.shared.report(progress)
+                        }
+                    }
                 )
+                state = .loading
                 container = loaded
                 state = .ready
                 Log.app.info("local language model ready")
@@ -92,6 +109,27 @@ final class LocalLanguageModel: ObservableObject {
         loadTask = task
         defer { loadTask = nil }
         return try await task.value
+    }
+
+    /// Translates the downloader's `Progress` into something the interface can
+    /// show. Byte counts are included because a percentage alone gives no sense
+    /// of how long two and a half gigabytes will take.
+    private func report(_ progress: Progress) {
+        let fraction = progress.fractionCompleted
+        var detail = ""
+        if progress.totalUnitCount > 0 {
+            let done = Self.bytes(progress.completedUnitCount)
+            let total = Self.bytes(progress.totalUnitCount)
+            detail = "  (\(done) of \(total))"
+        }
+        state = .downloading(fraction, detail)
+    }
+
+    private static func bytes(_ count: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowedUnits = [.useMB, .useGB]
+        return formatter.string(fromByteCount: count)
     }
 
     /// Frees the weights. The model is several gigabytes resident, which is
@@ -109,13 +147,25 @@ final class LocalLanguageModel: ObservableObject {
     /// Sessions are never reused across calls. A persistent session accumulates
     /// every previous transcript in the same window, which is the failure this
     /// model was adopted to avoid.
-    func respond(instructions: String, prompt: String) async throws -> String {
+    /// - Parameter onChunk: called as text arrives. Generation over a whole
+    ///   meeting takes about a minute, and a progress bar that cannot move for
+    ///   that long is indistinguishable from a hang; streaming gives the
+    ///   interface something true to show.
+    func respond(
+        instructions: String,
+        prompt: String,
+        onChunk: @escaping (String) -> Void = { _ in }
+    ) async throws -> String {
         let model = try await load()
         let session = ChatSession(model, instructions: instructions)
         // Qwen3 is a reasoning model. Thinking is suppressed for these tasks --
         // it costs generation time and the answer is what gets parsed.
-        let reply = try await session.respond(to: prompt + "\n\n/no_think")
-        return Self.stripThinking(reply).trimmingCharacters(in: .whitespacesAndNewlines)
+        var accumulated = ""
+        for try await chunk in session.streamResponse(to: prompt + "\n\n/no_think") {
+            accumulated += chunk
+            onChunk(Self.stripThinking(accumulated))
+        }
+        return Self.stripThinking(accumulated).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Qwen3 emits a <think> block ahead of its answer even when thinking is
