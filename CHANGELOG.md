@@ -44,6 +44,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   than generated.
 - Reply parsing and validation moved to `ModelReply`, which is pure and testable
   without a model present.
+- Detected personal names are reviewed on the People tab rather than alongside
+  unrecognised words on the Words tab. They were previously distinguished only
+  by a small icon in a shared list, so a colleague could be filed as vocabulary
+  with one click — in a design whose whole point is that names live elsewhere.
+  Separate limits also stop either kind crowding the other out of a short list.
 - A manual rescan now reads unread transcripts instead of clearing every
   transcript's analysis mark, which had the effect of re-asking every question
   that had already been answered.

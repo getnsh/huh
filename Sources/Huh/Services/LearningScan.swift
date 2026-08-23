@@ -46,6 +46,7 @@ final class LearningScan: ObservableObject {
         TranscriptExtractor.shared.people.count
             + CorrectionSuggester.shared.proposals.count
             + VocabularySuggester.shared.candidates.count
+            + VocabularySuggester.shared.nameCandidates.count
     }
 
     func dismissResult() { result = nil }
@@ -127,6 +128,7 @@ final class LearningScan: ObservableObject {
             await drainQueue()
 
             let names = TranscriptExtractor.shared.people.count
+                + VocabularySuggester.shared.nameCandidates.count
             let fixes = CorrectionSuggester.shared.proposals.count
             let words = VocabularySuggester.shared.candidates.count
             CorrectionSuggester.shared.noteEmptyRun(fixes == 0)

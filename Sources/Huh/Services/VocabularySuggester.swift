@@ -37,7 +37,18 @@ final class VocabularySuggester: ObservableObject {
         var isName: Bool = false
     }
 
+    /// Unrecognised words, excluding personal names. Reviewed on the Words tab
+    /// and, if accepted, added to the dictionary.
     @Published private(set) var candidates: [Candidate] = []
+    /// Personal names, reviewed on the People tab and, if accepted, filed in
+    /// `PeopleStore`.
+    ///
+    /// Held apart from `candidates` rather than flagged within it. A name and a
+    /// piece of jargon look alike to a detector but are different things to the
+    /// person reviewing them, and they end up in different stores — offering
+    /// them in one list invited filing a colleague as vocabulary. Separate caps
+    /// also stop either kind crowding the other out of a single short list.
+    @Published private(set) var nameCandidates: [Candidate] = []
     /// Candidates withheld solely because they were previously rejected.
     /// Distinguishes "nothing found" from "everything found was dismissed";
     /// only the latter is recoverable.
@@ -50,6 +61,7 @@ final class VocabularySuggester: ObservableObject {
     /// nouns, which appear once or twice per recording.
     private let threshold = 2
     private let maxSuggestions = 8
+    private let maxNames = 8
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -74,9 +86,15 @@ final class VocabularySuggester: ObservableObject {
 
     func refresh() {
         let transcripts = HistoryStore.shared.transcripts
-        guard !transcripts.isEmpty else { candidates = []; suppressedCount = 0; return }
+        guard !transcripts.isEmpty else {
+            candidates = []
+            nameCandidates = []
+            suppressedCount = 0
+            return
+        }
         let (found, suppressed) = Self.scan(transcripts, threshold: threshold)
-        candidates = Array(found.prefix(maxSuggestions))
+        candidates = Array(found.filter { !$0.isName }.prefix(maxSuggestions))
+        nameCandidates = Array(found.filter(\.isName).prefix(maxNames))
         suppressedCount = suppressed
     }
 
@@ -207,7 +225,7 @@ final class VocabularySuggester: ObservableObject {
     func accept(_ candidate: Candidate) {
         DictionaryStore.shared.addTerm(candidate.word)
         DecisionLedger.shared.record(candidate.word, decision: .term, resolved: candidate.word)
-        candidates.removeAll { $0.id == candidate.id }
+        remove(candidate.id)
     }
 
     /// Files the candidate as a person instead of a dictionary term. Names live
@@ -215,20 +233,26 @@ final class VocabularySuggester: ObservableObject {
     func acceptAsPerson(_ candidate: Candidate) {
         PeopleStore.shared.add(name: candidate.word, learned: true)
         DecisionLedger.shared.record(candidate.word, decision: .person, resolved: candidate.word)
-        candidates.removeAll { $0.id == candidate.id }
+        remove(candidate.id)
     }
 
     func dismiss(_ candidate: Candidate) {
         DecisionLedger.shared.record(candidate.word, decision: .ignored)
-        candidates.removeAll { $0.id == candidate.id }
+        remove(candidate.id)
     }
 
     /// Removes a token from the review list without recording a decision. Used
     /// when the decision is recorded elsewhere, such as by accepting a
     /// correction proposal for the same token.
     func retire(_ word: String) {
-        let key = DecisionLedger.normalise(word)
-        candidates.removeAll { $0.id == key }
+        remove(DecisionLedger.normalise(word))
+    }
+
+    /// A token appears in exactly one of the two lists, but which one depends on
+    /// a detector, so removal always addresses both.
+    private func remove(_ id: String) {
+        candidates.removeAll { $0.id == id }
+        nameCandidates.removeAll { $0.id == id }
     }
 
     func resetDismissed() {

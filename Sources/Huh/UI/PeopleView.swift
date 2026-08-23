@@ -87,8 +87,13 @@ struct PersonRow: View {
 /// than no queue.
 struct PersonProposalStrip: View {
     @ObservedObject private var extractor = TranscriptExtractor.shared
+    @ObservedObject private var vocabulary = VocabularySuggester.shared
     @ObservedObject private var scan = LearningScan.shared
     @ObservedObject private var intelligence = ModelAvailability.shared
+
+    private var isEmpty: Bool {
+        extractor.people.isEmpty && vocabulary.nameCandidates.isEmpty
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -110,24 +115,57 @@ struct PersonProposalStrip: View {
                 }
             }
 
-            if !intelligence.isReady {
-                IntelligenceNotice(compact: true)
-            } else if extractor.people.isEmpty {
-                Text(scan.pending > 0
-                     ? "\(scan.pending) transcript\(scan.pending == 1 ? "" : "s") still to read."
-                     : "Nothing waiting. Names turn up here as transcripts are read, and each one is only ever asked about once.")
-                    .font(Theme.body(11.5))
-                    .foregroundStyle(Theme.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if isEmpty {
+                if !intelligence.isReady {
+                    // Detection needs no model, so this only explains the
+                    // absence of the proposals below it.
+                    IntelligenceNotice(compact: true)
+                } else {
+                    Text(scan.pending > 0
+                         ? "\(scan.pending) transcript\(scan.pending == 1 ? "" : "s") still to read."
+                         : "Nothing waiting. Names turn up here as transcripts are read, and each one is only ever asked about once.")
+                        .font(Theme.body(11.5))
+                        .foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 ScrollView {
-                    VStack(spacing: 6) {
-                        ForEach(extractor.people) { proposal in
-                            PersonProposalRow(proposal: proposal)
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Two kinds of suggestion, and the difference matters:
+                        // below, the model believes it knows the correct
+                        // spelling; here, a name was merely spoken and only
+                        // needs remembering.
+                        if !vocabulary.nameCandidates.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Spoken often — someone you know?")
+                                    .font(Theme.body(11))
+                                    .foregroundStyle(Theme.textTertiary)
+                                FlowRow(spacing: 6) {
+                                    ForEach(vocabulary.nameCandidates) { candidate in
+                                        NameCandidateChip(candidate: candidate)
+                                    }
+                                }
+                            }
+                        }
+
+                        if !extractor.people.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if !vocabulary.nameCandidates.isEmpty {
+                                    Text("Heard wrong — the model suggests a spelling")
+                                        .font(Theme.body(11))
+                                        .foregroundStyle(Theme.textTertiary)
+                                        .padding(.top, 2)
+                                }
+                                VStack(spacing: 6) {
+                                    ForEach(extractor.people) { proposal in
+                                        PersonProposalRow(proposal: proposal)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-                .frame(maxHeight: 210)
+                .frame(maxHeight: 240)
                 .scrollBounceBehavior(.basedOnSize)
             }
         }
@@ -137,6 +175,62 @@ struct PersonProposalStrip: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
         .animation(Theme.spring, value: extractor.people)
+        .animation(Theme.spring, value: vocabulary.nameCandidates)
+    }
+}
+
+/// A name the detectors found but the model has not proposed a respelling for.
+///
+/// The only question is whether it is a person. Accepting files them under
+/// People; if the spelling itself is wrong, the correction editor is one menu
+/// item away.
+private struct NameCandidateChip: View {
+    let candidate: VocabularySuggester.Candidate
+
+    @ObservedObject private var suggester = VocabularySuggester.shared
+    @ObservedObject private var ui = UIState.shared
+
+    private var hoverID: String { "name-\(candidate.id)" }
+
+    var body: some View {
+        Menu {
+            Button("Remember “\(candidate.word)” as a person") {
+                suggester.acceptAsPerson(candidate)
+            }
+            Button("The spelling is wrong — fix it…") {
+                ui.fixHeardWord(candidate.word)
+            }
+            Divider()
+            Button("Not a name") { suggester.dismiss(candidate) }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.live)
+                Text(candidate.word)
+                    .font(Theme.medium(12.5))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("\(candidate.count)×")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textTertiary)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(ui.hovered == hoverID ? Theme.live.opacity(0.16) : Theme.live.opacity(0.08)))
+            .overlay(Capsule().strokeBorder(Theme.live.opacity(ui.hovered == hoverID ? 0.5 : 0.28), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .onHover { inside in
+            withAnimation(Theme.quick) {
+                if inside { ui.hovered = hoverID } else if ui.hovered == hoverID { ui.hovered = nil }
+            }
+        }
     }
 }
 
