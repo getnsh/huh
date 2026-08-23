@@ -146,5 +146,15 @@ codesign --force \
 echo "==> verifying signature"
 codesign --verify --strict --verbose=2 "$APP" 2>&1 | sed 's/^/    /'
 
+# Record the path rather than leaving every other script to recompute it.
+#
+# install.sh and notarize.sh used to derive the staging directory from the same
+# expression this script uses. When the two disagreed -- which happened as soon
+# as this script started using mktemp -- the copy silently succeeded from a
+# stale directory left by an earlier run, and shipped a months-old bundle that
+# had just been "rebuilt". A recorded path cannot drift.
+mkdir -p "$ROOT/.build"
+printf '%s' "$APP" > "$ROOT/.build/last-bundle-path"
+
 echo "==> done: $APP"
 echo "    install with: ./scripts/install.sh"
