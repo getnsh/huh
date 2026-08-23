@@ -26,7 +26,19 @@ fi
 # prompt rather than sudo, in which case $USER is root and the certificate would
 # be imported into the wrong keychain. The console owner is authoritative.
 REAL_USER="${SUDO_USER:-$(stat -f%Su /dev/console)}"
-LOGIN_KEYCHAIN="$(eval echo "~$REAL_USER")/Library/Keychains/login.keychain-db"
+REAL_HOME="$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+[ -n "$REAL_HOME" ] || { echo "!! could not resolve the home directory for $REAL_USER" >&2; exit 1; }
+LOGIN_KEYCHAIN="$REAL_HOME/Library/Keychains/login.keychain-db"
+
+# The certificate name is interpolated into an OpenSSL config below, where a
+# newline would inject directives.
+case "$NAME" in
+    *[!A-Za-z0-9\ ._-]*|"") echo "!! name may contain only letters, digits, spaces, dots, hyphens and underscores" >&2; exit 1 ;;
+esac
+
+# A one-off passphrase, so the exported key is never written to disk
+# unprotected even for the seconds it exists in the temp directory.
+P12PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
 
 echo "==> generating key + certificate for \"$NAME\""
 cat > "$TMP/ext.cnf" <<CNF
@@ -44,19 +56,28 @@ CNF
 
 openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout "$TMP/key.pem" -out "$TMP/cert.pem" \
-    -days 3650 -config "$TMP/ext.cnf" 2>/dev/null
+    -days 365 -config "$TMP/ext.cnf" 2>/dev/null
 
 openssl pkcs12 -export -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
-    -out "$TMP/bundle.p12" -passout pass: -name "$NAME"
+    -out "$TMP/bundle.p12" -passout "pass:$P12PASS" -name "$NAME"
 
 echo "==> importing into $REAL_USER's login keychain"
 sudo -u "$REAL_USER" security import "$TMP/bundle.p12" \
-    -k "$LOGIN_KEYCHAIN" -P "" -A -T /usr/bin/codesign
+    -k "$LOGIN_KEYCHAIN" -P "$P12PASS" -T /usr/bin/codesign
 
-echo "==> trusting it for code signing (system keychain)"
-security add-trusted-cert -d -r trustRoot \
-    -p codeSign -k /Library/Keychains/System.keychain "$TMP/cert.pem"
+# Trusted for this user only, not machine-wide.
+#
+# An earlier version added this to the system keychain as a full trust root, and
+# imported the private key with -A, which let any process on the machine sign
+# code the system would accept. A local development convenience does not warrant
+# either.
+echo "==> trusting it for code signing ($REAL_USER's login keychain)"
+sudo -u "$REAL_USER" security add-trusted-cert -r trustAsRoot \
+    -p codeSign -k "$LOGIN_KEYCHAIN" "$TMP/cert.pem"
 
 echo
 echo "Done. Build with a stable signature:"
 echo "    SIGN_ID=\"$NAME\" ./scripts/build.sh release"
+echo
+echo "To remove it later:"
+echo "    security delete-certificate -c \"$NAME\" \"$LOGIN_KEYCHAIN\""

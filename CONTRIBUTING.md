@@ -4,10 +4,13 @@
 
 - macOS 27 or later to build (the app itself runs on macOS 26 — see
   [Compatibility](README.md#compatibility) for why those differ)
-- Xcode Command Line Tools (`xcode-select --install`)
+- Xcode, and the Metal toolchain: `xcodebuild -downloadComponent MetalToolchain`
 
-A full Xcode installation is not required. The project builds with SwiftPM and
-assembles its own bundle.
+The bundle is assembled by `scripts/build.sh` rather than by Xcode, but Xcode is
+still required: the summary model runs through MLX, whose GPU kernels are Metal
+source compiled at build time, and the `metal` compiler ships only with Xcode —
+as a separate download even there. `build.sh` checks for it and says so plainly
+if it is missing.
 
 One consequence worth knowing: Command Line Tools do not ship
 `libSwiftUIMacros.dylib`, so `@State`, `@StateObject` and `@FocusState` will not
@@ -21,6 +24,7 @@ Xcode and fail under Command Line Tools.
 ./scripts/install.sh      # build and install to /Applications
 ./scripts/test.sh         # run all verification suites
 ./scripts/make-icon.sh    # regenerate the app icon
+./scripts/uninstall.sh    # remove the app (add --all to delete stored data)
 ```
 
 For local development, create a stable signing certificate once so that macOS

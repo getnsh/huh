@@ -1,11 +1,22 @@
 # Privacy
 
-The application makes no network requests **except one**: selecting the Parakeet
-engine downloads its models once, from the model registry, and caches them in
-Application Support. No audio, transcript or dictionary content is transmitted at
-any point, and the default engine requires no download at all.
+The application makes no network requests of its own **except two model
+downloads**, and neither carries any of your content:
 
-Everything below describes data that stays on the machine.
+1. Selecting the **Parakeet** speech engine downloads its models once.
+2. Selecting **Qwen3 4B** for summaries downloads its weights once (~2.5 GB).
+
+Both are optional, both are off by default, and after either download the
+feature runs offline.
+
+There is one further path, and it only happens when you ask for it: **sending a
+transcript to ChatGPT or Claude**. That copies the transcript to your clipboard
+and opens the site so you can paste it. The application transmits nothing — you
+do, deliberately, and you can see exactly what you are pasting. It is offered
+because a long meeting exceeds what the built-in model can read, and because not
+everyone wants a 2.5 GB download.
+
+Everything else stays on the machine.
 
 ## What is processed
 
@@ -18,16 +29,19 @@ Everything below describes data that stays on the machine.
 | Review decisions | `~/Library/Application Support/Huh/decisions.json` | Until deleted |
 | Imported media | Read from the path selected; optionally moved to the Trash afterwards | Not copied |
 | Preferences | `UserDefaults` under `com.getnsh.huh` | Until reset |
+| Downloaded models | `~/.cache/huggingface` | Until deleted; shared with other apps using that cache |
+| Transcript sent to ChatGPT or Claude | Your clipboard, then wherever you paste it | Governed by that provider, not by this application |
 
 ## What never happens
 
-- No audio, transcript or dictionary content is transmitted anywhere, by any
-  engine, at any time.
+- No audio, transcript or dictionary content is transmitted by this application,
+  by any engine, at any time. The one way your content reaches a third party is
+  the hand-off described above, which you trigger and paste yourself.
+- No audio is ever uploaded, under any setting.
 - No analytics, telemetry, crash reporting or update check.
 - No account, and no identifier of any kind is generated or stored.
-- The only outbound request the application can make is the Parakeet model
-  download, which occurs only if that engine is selected, only once, and
-  transmits nothing about the user.
+- The only outbound requests the application makes are the two optional model
+  downloads, each only if selected, each once, neither carrying user content.
 
 ## Language models
 

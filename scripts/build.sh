@@ -3,8 +3,9 @@
 # Builds the application and assembles a signed bundle.
 #
 # The project is built with SwiftPM and the bundle is assembled here rather than
-# by Xcode, so a full Xcode installation is not required — Command Line Tools are
-# sufficient. An .app bundle is a directory with an Info.plist and a signature.
+# by Xcode — an .app bundle is a directory with an Info.plist and a signature.
+# Xcode is still required, because the Metal shaders the summary model depends on
+# cannot be compiled by Command Line Tools. See the toolchain check below.
 #
 # Usage:
 #   ./scripts/build.sh [debug|release]
@@ -39,7 +40,18 @@ fi
 # shares, synced folders — attach Finder metadata to directories as they are
 # written, which codesign rejects under --strict and which cannot be removed
 # durably while the file lives there.
-STAGE="${HUH_STAGE:-${TMPDIR:-/tmp/}huh-build}"
+# A fixed path under a world-writable /tmp would let another local user
+# pre-create or symlink the directory the bundle is assembled into. TMPDIR is
+# per-user on a normal login, but it is unset under sudo, launchd and some CI.
+if [ -n "${HUH_STAGE:-}" ]; then
+    STAGE="$HUH_STAGE"
+    mkdir -p "$STAGE"
+elif [ -n "${TMPDIR:-}" ]; then
+    STAGE="${TMPDIR}huh-build"
+    mkdir -p "$STAGE"
+else
+    STAGE="$(mktemp -d /tmp/huh-build.XXXXXX)"
+fi
 APP="$STAGE/$BUNDLE.app"
 CONTENTS="$APP/Contents"
 

@@ -18,8 +18,8 @@ func expect(_ input: String, _ level: CleanupLevel, equals expected: String, _ l
 }
 
 print("fillers")
-expect("Uh, you remember the storeforce app issue.", .standard,
-       equals: "You remember the storeforce app issue.", "leading uh")
+expect("Uh, you remember the billing sync app issue.", .standard,
+       equals: "You remember the billing sync app issue.", "leading uh")
 expect("So that's, um, something we need to kick off.", .standard,
        equals: "So that's, something we need to kick off.", "mid-sentence um")
 expect("I mean, ah, right.", .standard, equals: "I mean, right.", "ah")
@@ -33,8 +33,8 @@ print("must not damage real language")
 expect("I like this like a lot.", .standard, equals: "I like this like a lot.", "'like' is never a filler here")
 expect("The report that had had errors was fixed.", .standard,
        equals: "The report that had had errors was fixed.", "doubled 'had' is grammar, not a stutter")
-expect("Ahmed and Erica are on the call.", .standard,
-       equals: "Ahmed and Erica are on the call.", "'ah' and 'er' inside names survive")
+expect("Ahmet and Erika are on the call.", .standard,
+       equals: "Ahmet and Erika are on the call.", "'ah' and 'er' inside names survive")
 expect("Summarise the umbrella policy.", .standard,
        equals: "Summarise the umbrella policy.", "'um' inside words survives")
 expect("Uh-huh, understood.", .standard, equals: "Uh-huh, understood.", "hyphenated uh-huh is a word")

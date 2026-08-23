@@ -13,6 +13,9 @@ final class HistoryStore: ObservableObject {
     static let shared = HistoryStore()
 
     @Published private(set) var transcripts: [Transcript] = []
+    /// Set when history could not be read. While this holds a value the store
+    /// refuses to write, so a file it failed to parse is never overwritten.
+    @Published private(set) var loadError: String?
 
     static let capacity = 500
 
@@ -70,7 +73,7 @@ final class HistoryStore: ObservableObject {
 
         if changed > 0 {
             save()
-            Log.app.info("retroactive correction \(pair.hear, privacy: .public): \(changed, privacy: .public) transcripts updated")
+            Log.app.info("retroactive correction applied to \(changed, privacy: .public) transcripts")
         }
         return changed
     }
@@ -127,15 +130,29 @@ final class HistoryStore: ObservableObject {
         guard let data = try? Data(contentsOf: Storage.historyURL) else { return }
         do {
             transcripts = try Storage.decoder.decode([Transcript].self, from: data)
+            loadError = nil
         } catch {
-            // Report rather than swallow: loading an empty list and then
-            // persisting it would destroy the existing history.
-            Log.app.error("history load failed, keeping file intact: \(error.localizedDescription, privacy: .public)")
-            transcripts = []
+            // The in-memory list is deliberately left alone. Emptying it here
+            // and then saving -- which the next dictation would do within
+            // seconds -- is what would actually destroy the history this is
+            // trying to protect.
+            let backup = Storage.historyURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("history.corrupt.json")
+            try? FileManager.default.removeItem(at: backup)
+            try? FileManager.default.copyItem(at: Storage.historyURL, to: backup)
+
+            loadError = "Transcript history couldn't be read. The file has been left untouched and copied to history.corrupt.json; nothing new will be saved until it is fixed or removed."
+            Log.app.error("history load failed, refusing to write: \(error.localizedDescription)")
         }
     }
 
     private func save() {
+        // Never write over a file that could not be parsed.
+        guard loadError == nil else {
+            Log.app.error("history save suppressed: the store did not load cleanly")
+            return
+        }
         do {
             let data = try Storage.encoder.encode(transcripts)
             try data.write(to: Storage.historyURL, options: .atomic)

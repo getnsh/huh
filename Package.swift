@@ -30,8 +30,8 @@ let package = Package(
             ],
             path: "Sources/Huh",
             swiftSettings: [
-                // Skeleton uses Swift 5 concurrency checking so AppKit/AVFoundation
-                // callbacks don't drown it in Sendable errors. Tighten to .v6 later.
+                // Swift 5 concurrency checking, so AppKit and AVFoundation
+                // callbacks do not produce Sendable errors throughout.
                 .swiftLanguageMode(.v5)
             ]
         )

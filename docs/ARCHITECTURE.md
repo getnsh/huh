@@ -184,14 +184,14 @@ DecisionLedger ── every outcome recorded, so nothing is ever asked twice
 The earlier design sent the model a list of unrecognised tokens with one sentence
 of context each. It failed in three ways that were only visible in use:
 
-- A small model asked "what is *bundo*?" with nothing to go on invents an answer.
+- A small model asked "what is *grafna*?" with nothing to go on invents an answer.
 - Asked about twelve tokens at once, it tends to give them all the same answer.
 - Only the first handful of tokens in a recording was ever examined, so most of a
   long transcript was never read.
 
 The model now receives the passage itself alongside the tokens found in it, so it
 answers with the surrounding conversation in front of it — which is the only way
-`Lickup` is recognisable as a mis-hearing of a product name, or `critese` as a
+`Zendisk` is recognisable as a mis-hearing of a product name, or `kubernets` as a
 person.
 
 Passages are 320 words. The window would take roughly three times that; the limit

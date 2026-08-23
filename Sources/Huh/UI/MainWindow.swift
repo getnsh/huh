@@ -296,14 +296,12 @@ private struct ScanResultBanner: View {
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 8)
-                if true {
-                    if scan.canRestoreDismissed {
-                        Button("Show Dismissed") { scan.restoreDismissed() }
-                            .buttonStyle(GhostButtonStyle(tint: Theme.live))
-                    }
-                    Button("Dismiss") { scan.dismissResult() }
-                        .buttonStyle(GhostButtonStyle())
+                if scan.canRestoreDismissed {
+                    Button("Show Dismissed") { scan.restoreDismissed() }
+                        .buttonStyle(GhostButtonStyle(tint: Theme.live))
                 }
+                Button("Dismiss") { scan.dismissResult() }
+                    .buttonStyle(GhostButtonStyle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 9)

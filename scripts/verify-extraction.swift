@@ -36,14 +36,14 @@ func kindLabel(_ kind: ModelReply.Kind) -> String {
 print("well-formed replies parse")
 do {
     let reply = """
-        Lickup | NAME | ClickUp
+        Zendisk | NAME | Zendesk
         superbase | TERM | -
-        bundo | FIX | bundle
-        critese | SKIP | -
+        bundel | FIX | bundle
+        kubernets | SKIP | -
         """
-    let answers = ModelReply.classifications(reply, candidates: ["Lickup", "superbase", "bundo", "critese"])
+    let answers = ModelReply.classifications(reply, candidates: ["Zendisk", "superbase", "bundel", "kubernets"])
     check(answers.count == 4, "four answers for four words")
-    check(label(answers, 0) == "person(ClickUp)", "NAME carries the corrected spelling")
+    check(label(answers, 0) == "person(Zendesk)", "NAME carries the corrected spelling")
     check(label(answers, 1) == "term", "TERM needs no answer")
     check(label(answers, 2) == "fix(bundle)", "FIX carries the replacement")
     check(label(answers, 3) == "skip", "SKIP is preserved as an answer")
@@ -61,8 +61,8 @@ do {
 
 print("a name spelled correctly is still a name")
 do {
-    let answers = ModelReply.classifications("Katherine | NAME | Katherine", candidates: ["Katherine"])
-    check(label(answers, 0) == "person(Katherine)", "identity accepted for NAME")
+    let answers = ModelReply.classifications("Marguerite | NAME | Marguerite", candidates: ["Marguerite"])
+    check(label(answers, 0) == "person(Marguerite)", "identity accepted for NAME")
 }
 
 print("an unchanged word is not a fix")
@@ -87,17 +87,17 @@ do {
 print("trailing commentary is trimmed")
 do {
     let answers = ModelReply.classifications(
-        "Lickup | NAME | ClickUp. This is a project management tool.",
-        candidates: ["Lickup"]
+        "Zendisk | NAME | Zendesk. This is a project management tool.",
+        candidates: ["Zendisk"]
     )
-    check(label(answers, 0) == "person(ClickUp)", "explanation dropped")
+    check(label(answers, 0) == "person(Zendesk)", "explanation dropped")
 }
 
 print("answers for words that were not asked about are discarded")
 do {
     let answers = ModelReply.classifications(
-        "Kubernetes | NAME | Kubernetes\nLickup | NAME | ClickUp",
-        candidates: ["Lickup"]
+        "Kubernetes | NAME | Kubernetes\nZendisk | NAME | Zendesk",
+        candidates: ["Zendisk"]
     )
     check(answers.count == 1, "only the requested word survives")
 }
@@ -105,43 +105,43 @@ do {
 print("duplicate lines for one word are ignored")
 do {
     let answers = ModelReply.classifications(
-        "Lickup | NAME | ClickUp\nLickup | NAME | Lockup",
-        candidates: ["Lickup"]
+        "Zendisk | NAME | Zendesk\nZendesk | NAME | Lockup",
+        candidates: ["Zendisk"]
     )
     check(answers.count == 1, "first answer wins")
 }
 
 print("implausible answers are rejected")
 do {
-    let answers = ModelReply.classifications("Cornwall | NAME | Prashant", candidates: ["Cornwall"])
+    let answers = ModelReply.classifications("Riverbend | NAME | Ashwin", candidates: ["Riverbend"])
     check(answers.isEmpty, "an answer that sounds nothing like the word is dropped")
 }
 
 print("mode collapse is detected")
 do {
     let reply = """
-        Prashent | NAME | Prashant
-        Prashint | NAME | Prashant
-        Proshant | NAME | Prashant
+        Ashwen | NAME | Ashwin
+        Ashwyn | NAME | Ashwin
+        Oshwin | NAME | Ashwin
         """
-    let answers = ModelReply.classifications(reply, candidates: ["Prashent", "Prashint", "Proshant"])
+    let answers = ModelReply.classifications(reply, candidates: ["Ashwen", "Ashwyn", "Oshwin"])
     check(answers.isEmpty, "one answer given to three words is discarded entirely")
 }
 
 print("two collapsed answers are still allowed")
 do {
     let reply = """
-        Prashent | NAME | Prashant
-        Prashint | NAME | Prashant
+        Ashwen | NAME | Ashwin
+        Ashwyn | NAME | Ashwin
         """
-    let answers = ModelReply.classifications(reply, candidates: ["Prashent", "Prashint"])
+    let answers = ModelReply.classifications(reply, candidates: ["Ashwen", "Ashwyn"])
     check(answers.count == 2, "genuine variants of one name survive")
 }
 
 print("malformed lines are skipped rather than fatal")
 do {
-    let reply = "I'm not sure about any of these.\nLickup NAME ClickUp\nLickup | NAME | ClickUp"
-    let answers = ModelReply.classifications(reply, candidates: ["Lickup"])
+    let reply = "I'm not sure about any of these.\nZendesk NAME Zendesk\nZendisk | NAME | Zendesk"
+    let answers = ModelReply.classifications(reply, candidates: ["Zendisk"])
     check(answers.count == 1, "prose and separator-less lines are ignored")
 }
 
@@ -152,15 +152,15 @@ do {
     let reply = """
         TOPIC: pricing for the new tier
         DECISION: ship the beta on Friday
-        ACTION: Priya — draft the changelog
+        ACTION: Dana — draft the changelog
         QUESTION: who owns the migration?
-        PERSON: Priya
+        PERSON: Dana
         Some stray commentary the model added.
         """
     let observations = ModelReply.observations(reply)
     check(observations.count == 5, "five labelled lines, commentary dropped")
     check(observations.count > 2 && observations[1].kind == .decision, "labels map to kinds")
-    check(observations.count > 2 && observations[2].text == "Priya — draft the changelog", "text preserved verbatim")
+    check(observations.count > 2 && observations[2].text == "Dana — draft the changelog", "text preserved verbatim")
 }
 
 print("numbered observations parse")

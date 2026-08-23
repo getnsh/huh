@@ -6,7 +6,7 @@ import FoundationModels
 ///
 /// This replaces an earlier approach that sent the model a bare list of
 /// unrecognised tokens with one sentence of context each. That approach failed
-/// in a specific and predictable way: a small model asked "what is *bundo*?"
+/// in a specific and predictable way: a small model asked "what is *grafna*?"
 /// with nothing to go on invents an answer, and asked the same question about
 /// twelve tokens at once it tends to give them all the same answer. It also
 /// only ever saw the first handful of tokens in a recording, so most of a long
@@ -26,7 +26,7 @@ import FoundationModels
 ///     and classifies each one as a person, a term, a mis-hearing, or unknown.
 ///
 /// The model therefore answers with the surrounding conversation in front of
-/// it, which is the only way "Lickup" is recognisable as a person's name.
+/// it, which is the only way "Zendisk" is recognisable as a person's name.
 @MainActor
 final class TranscriptExtractor: ObservableObject {
 

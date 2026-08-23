@@ -5,18 +5,32 @@ import Foundation
 /// Files are stored under Application Support rather than a hidden directory,
 /// since the dictionary is intended to be discoverable and editable by hand.
 enum Storage {
-    static var directory: URL {
+    /// Resolved once. It was previously computed on every access, so a SwiftUI
+    /// view body that mentioned a file path ran directory creation and a
+    /// migration check on every redraw.
+    static let directory: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         // Brand.productName, not Brand.name — the display name has a "?" in it.
         let dir = base.appendingPathComponent(Brand.productName, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         migrateLegacyDataIfNeeded(into: dir, from: base)
         return dir
-    }
+    }()
 
     /// Migrates data from a previous product name. Renaming the application
     /// must not orphan an existing dictionary or history.
+    /// Runs at most once, ever.
+    ///
+    /// This used to run on every access to `directory`, copying anything the
+    /// destination lacked. That made deletion ineffective: a user who removed
+    /// `history.json` to purge sensitive transcripts had them restored from the
+    /// old location on the next launch. A marker records that the migration has
+    /// happened so it cannot silently undo a deletion.
     private static func migrateLegacyDataIfNeeded(into dir: URL, from base: URL) {
+        let done = "didMigrateLegacyData"
+        guard !UserDefaults.standard.bool(forKey: done) else { return }
+        UserDefaults.standard.set(true, forKey: done)
+
         let fm = FileManager.default
         let legacy = base.appendingPathComponent(Brand.legacyProductName, isDirectory: true)
         guard fm.fileExists(atPath: legacy.path) else { return }
