@@ -2,7 +2,8 @@
 
 ## Requirements
 
-- macOS 26 or later
+- macOS 27 or later to build (the app itself runs on macOS 26 — see
+  [Compatibility](README.md#compatibility) for why those differ)
 - Xcode Command Line Tools (`xcode-select --install`)
 
 A full Xcode installation is not required. The project builds with SwiftPM and
@@ -43,6 +44,7 @@ no mocks and no duplicated logic.
 | `verify-corrections.sh` | Matching, separator tolerance, precedence, non-overlap, safety warnings |
 | `verify-cleanup.sh` | Disfluency removal, and the words it must not touch |
 | `verify-plausibility.sh` | Edit-distance rejection of implausible corrections |
+| `verify-extraction.sh` | Model reply parsing, validation, collapse detection, observation consolidation, token budgeting |
 
 Add a case to the relevant suite for any change to matching, cleanup or
 validation behaviour. The negative cases matter as much as the positive ones:

@@ -63,9 +63,9 @@ recogniser output in `raw`, so corrections and cleanup are always recoverable.
 
 - Accessibility permission is broad by construction. It is granted to the
   application as a whole; macOS provides no narrower scope.
-- Ad-hoc signed builds are not verifiable by third parties. Distributable builds
-  must be signed with a Developer ID identity and notarised; see
-  `scripts/notarize.sh`.
+- Ad-hoc signed builds are not verifiable by third parties. The signature
+  establishes only that the bundle has not changed since it was built on that
+  machine; it says nothing about who built it.
 - Dictionary and history files are stored unencrypted under Application Support,
   protected by the user's account and FileVault where enabled. Encrypting them
   separately would prevent the documented workflow of editing the dictionary by

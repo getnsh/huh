@@ -119,15 +119,15 @@ Intelligence, and macOS 27 drops Intel entirely. See
 ## Install
 
 ```bash
-git clone https://github.com/<user>/huh.git
+git clone https://github.com/getnsh/huh.git
 cd huh
 ./scripts/install.sh
 open "/Applications/huh?.app"
 ```
 
 Builds are signed ad hoc with the Hardened Runtime enabled, which is trusted on
-the machine that produced them. Distributing to other machines requires a
-Developer ID identity and notarisation — see
+the machine that produced them. Build on the Mac you intend to run it on — a
+bundle copied from elsewhere is rejected by Gatekeeper. See
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Permissions
@@ -221,8 +221,8 @@ corrections), `inject` (insertion strategy and outcome).
 - Speaker diarisation for multi-speaker recordings, which Apple's speech
   framework does not provide. The `TranscriptionEngine` abstraction and the
   stubbed `ParakeetEngine` exist for this.
-- Notarised release builds.
 
 ## License
 
-[MIT](LICENSE).
+Free to use, on as many of your own machines as you like. Please don't ship
+modified or rebranded copies — see [LICENSE](LICENSE).

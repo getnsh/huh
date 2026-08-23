@@ -61,88 +61,29 @@ recognition assets for a locale on first use, and Apple Intelligence models
 through Software Update. Both are system operations outside the application's
 control; after they complete, the application runs fully offline.
 
-## Distribution
+## Installing on another machine
 
-### Option 1 — Developer ID and notarisation (recommended)
-
-The only route that produces a build others can open without warnings or manual
-overrides. Requires membership of the Apple Developer Program.
+huh? is distributed as source and built on the machine that runs it. There is no
+signed release download.
 
 ```bash
-# once
-xcrun notarytool store-credentials huh-notary \
-    --apple-id "you@example.com" --team-id "TEAMID" \
-    --password "app-specific-password"
-
-# per release
-SIGN_ID="Developer ID Application: Your Name (TEAMID)" ./scripts/notarize.sh
-```
-
-The script builds with the Hardened Runtime, archives with `ditto` — `zip` does
-not preserve the signature — submits to Apple, staples the ticket, re-archives,
-and confirms the result with `spctl`. The output in `dist/` can be attached to a
-GitHub release.
-
-A stapled ticket means the build validates offline, so a first launch works
-without network access.
-
-### Option 2 — Build from source
-
-Appropriate for a repository whose audience can run a build.
-
-```bash
-git clone https://github.com/<user>/huh.git && cd huh
+git clone https://github.com/getnsh/huh.git
+cd huh
 ./scripts/install.sh
 ```
 
-Requires Xcode Command Line Tools. Produces an ad-hoc signed build, which is
-trusted on the machine that produced it. No developer account needed.
+This builds with the Hardened Runtime, assembles the bundle, signs it ad hoc and
+installs to `/Applications`. The build takes a couple of minutes; the first
+launch asks for Microphone and Accessibility access.
 
-### Option 3 — Unsigned distribution
+An ad-hoc signature is tied to the machine that produced it, which has one
+consequence worth knowing during development: the signature changes on every
+rebuild, so macOS treats each build as a different application and asks for both
+permissions again. Creating a stable local certificate once fixes that — see
+[CONTRIBUTING.md](../CONTRIBUTING.md).
 
-Possible, but the recipient experience is poor and worth stating plainly.
-An ad-hoc signed build is rejected by Gatekeeper on any other machine:
-
-```
-spctl --assess --type execute "/Applications/huh?.app"
-→ rejected
-```
-
-Since macOS 15, Control-clicking an application no longer bypasses this. The
-recipient must open **System Settings ▸ Privacy & Security**, find the blocked
-application, and choose **Open Anyway** — or strip the quarantine attribute
-themselves:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/huh?.app"
-```
-
-Asking users to disable a security control in order to install a tool that
-requests Accessibility permission is a bad combination. Prefer option 1 or 2.
-
-### Option 4 — Homebrew cask
-
-Convenient once a notarised release exists:
-
-```ruby
-cask "huh" do
-  version "0.1.0"
-  sha256 "..."
-  url "https://github.com/<user>/huh/releases/download/v#{version}/Huh-#{version}.zip"
-  name "huh?"
-  desc "On-device push-to-talk dictation"
-  homepage "https://github.com/<user>/huh"
-  depends_on macos: ">= :tahoe"
-  app "huh?.app"
-end
-```
-
-### Not viable — the Mac App Store
-
-The App Store requires the App Sandbox. A sandboxed process cannot use the
-Accessibility API to read the focused element of another process or insert text
-into it, which is the application's primary function. This is the same reason
-text expanders and window managers are distributed outside the store.
+Because the signature is local, a bundle copied from one Mac to another is
+rejected by Gatekeeper. Build on the machine you intend to run it on.
 
 ## What does not transfer between machines
 
@@ -151,8 +92,9 @@ machine and cannot be pre-authorised. Each installation prompts on first launch,
 and Accessibility must be enabled manually.
 
 **Signature-bound grants.** macOS records permission grants against the code
-signature. With a stable Developer ID identity, grants survive updates. With
-ad-hoc signing they do not, because the signature changes with every build.
+signature, and an ad-hoc signature changes with every build, so a rebuild asks
+again. A stable local certificate keeps grants across rebuilds — see
+[CONTRIBUTING.md](../CONTRIBUTING.md).
 
 **User data.** The dictionary and history live in
 `~/Library/Application Support/Huh/` and are not synced. To move a dictionary to
@@ -162,8 +104,7 @@ another machine, copy `dictionary.json` — it is plain JSON and is read on laun
 
 1. Update `VERSION` and `CHANGELOG.md`.
 2. `./scripts/test.sh` — all suites pass.
-3. `SIGN_ID="Developer ID Application: …" ./scripts/notarize.sh`.
-4. Confirm `spctl --assess` reports **accepted**.
-5. Verify on a machine that has never run the application, to catch anything
+3. `./scripts/build.sh` — bundle assembles and the signature verifies.
+4. Verify on a machine that has never run the application, to catch anything
    that depends on existing permission grants or local state.
-6. Tag the release and attach `dist/Huh-<version>.zip`.
+5. Tag the release.

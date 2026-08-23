@@ -1,21 +1,38 @@
-MIT License
+huh? — Licence
 
-Copyright (c) 2026 getnsh
+Copyright (c) 2026 getnsh. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Use it freely
+-------------
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+huh? is free to use, for anything you like — personal or at work, on as many of
+your own machines as you want, for as long as you want. You're welcome to read
+the source, build it yourself, and take ideas from it.
+
+
+Two things are reserved
+-----------------------
+
+1. Modified versions. Please don't publish or share a changed version of huh?.
+   If something needs fixing or adding, open an issue — that tends to be faster
+   than maintaining a fork anyway.
+
+2. Selling or rebranding. Please don't sell huh?, charge for access to it, or
+   release it under another name — on its own or bundled into something else.
+
+Permission for either is genuinely available. Just ask.
+
+Contributions offered to this project are licensed to the copyright holder for
+use within it, and may then be distributed under this licence.
+
+
+No warranty
+-----------
+
+huh? is provided "as is", without warranty of any kind, express or implied,
+including but not limited to the warranties of merchantability, fitness for a
+particular purpose and non-infringement. In no event shall the author be liable
+for any claim, damages or other liability, whether in an action of contract,
+tort or otherwise, arising from, out of or in connection with huh? or the use or
+other dealings in it.

@@ -50,6 +50,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Asking a transcript a question refused outright whenever no passage matched
+  the question word-for-word, which is most of the time: "What was decided?"
+  never matched, because meetings contain "let us go with" and "that works", not
+  "decided". Retrieval now expands a question into related terms, and a miss
+  falls back to a spread of the recording rather than a refusal — the model is
+  already instructed to admit when the excerpts fall short, so the worst case is
+  the same answer reached honestly.
+- Settings was pinned to a fixed height, so every group added after it was
+  written — Microphone included — was clipped off the bottom with nothing to
+  indicate content was missing. It scrolls now.
 - Dictation failed with "No audio input device is available" only at the moment
   the push-to-talk key was pressed, on machines with no microphone — which is
   most desktop Macs. The absence is now detected up front and explained where the
