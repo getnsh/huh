@@ -87,6 +87,21 @@ rm -rf "$APP"
 mkdir -p "$STAGE" "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
 cp "$BIN" "$CONTENTS/MacOS/$NAME"
+
+# Resource bundles must travel with the binary.
+#
+# SwiftPM emits one .bundle per dependency that ships resources, and they sit
+# beside the executable in the build directory, which is why running from there
+# works. Copying only the executable into the app leaves them behind, and the
+# failure is deferred until the moment the resource is needed: MLX reports
+# "Failed to load the default metallib" the first time a summary runs, long
+# after a build and launch that both looked healthy.
+BUNDLE_SRC="$(dirname "$BIN")"
+for RESOURCE in "$BUNDLE_SRC"/*.bundle; do
+    [ -e "$RESOURCE" ] || continue
+    echo "==> bundling $(basename "$RESOURCE")"
+    cp -R "$RESOURCE" "$CONTENTS/Resources/"
+done
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/PrivacyInfo.xcprivacy" "$CONTENTS/Resources/PrivacyInfo.xcprivacy"
 [ -f "$ROOT/Resources/AppIcon.icns" ] && cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/"
