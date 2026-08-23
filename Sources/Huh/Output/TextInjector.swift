@@ -18,17 +18,28 @@ import ApplicationServices
 ///     stale content if it is restored too early.
 enum TextInjector {
 
-    /// The mechanism used, reported to the interface.
+    /// The mechanism used and where the text landed, reported to the interface.
+    ///
+    /// The destination is carried because dictation happens while another
+    /// application has focus. "Inserted at cursor" is true but uninformative:
+    /// the one thing worth confirming is *which* window received it, since a
+    /// mis-aimed insertion looks identical to a successful one from here.
     enum Outcome {
-        case inserted     // Accessibility API, straight into the focused field
-        case pasted       // clipboard + ⌘V, clipboard restored afterwards
-        case copied       // no insertion target; left on the pasteboard
+        /// Accessibility API, straight into the focused field.
+        case inserted(app: String?)
+        /// Clipboard and ⌘V, clipboard restored afterwards.
+        case pasted(app: String?)
+        /// No insertion target; left on the pasteboard.
+        case copied
 
         var label: String {
             switch self {
-            case .inserted: return "Inserted at cursor"
-            case .pasted:   return "Pasted at cursor"
-            case .copied:   return "Copied to clipboard"
+            case .inserted(let app):
+                return app.map { "Inserted into \($0)" } ?? "Inserted at cursor"
+            case .pasted(let app):
+                return app.map { "Pasted into \($0)" } ?? "Pasted at cursor"
+            case .copied:
+                return "Copied to clipboard"
             }
         }
     }
@@ -37,9 +48,14 @@ enum TextInjector {
     static func insert(_ text: String, mode: InjectionMode) -> Outcome {
         guard !text.isEmpty else { return .copied }
 
+        // Resolved before anything is written. Insertion can move focus, and
+        // the paste path posts ⌘V to whatever is frontmost at that instant, so
+        // asking afterwards can name the wrong application.
+        let destination = destinationApp()
+
         if mode == .auto, insertViaAccessibility(text) {
             Log.inject.info("inserted via accessibility")
-            return .inserted
+            return .inserted(app: destination)
         }
 
         // With no editable target, synthesising ⌘V would discard the text;
@@ -53,7 +69,48 @@ enum TextInjector {
 
         pasteViaClipboard(text)
         Log.inject.info("pasted via clipboard")
-        return .pasted
+        return .pasted(app: destination)
+    }
+
+    // MARK: - Destination
+
+    /// The application about to receive the text.
+    ///
+    /// The owner of the focused accessibility element is preferred over the
+    /// frontmost application, because they can differ: a floating panel or an
+    /// input method may be frontmost while the caret belongs to the window
+    /// behind it. The element's owning process is where the text actually goes.
+    private static func destinationApp() -> String? {
+        if Permissions.accessibilityTrusted {
+            let system = AXUIElementCreateSystemWide()
+            var focused: CFTypeRef?
+            if AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+               let value = focused,
+               CFGetTypeID(value) == AXUIElementGetTypeID() {
+                // swiftlint:disable:next force_cast
+                let element = value as! AXUIElement
+                var pid: pid_t = 0
+                if AXUIElementGetPid(element, &pid) == .success,
+                   let owner = NSRunningApplication(processIdentifier: pid),
+                   let name = usableName(owner) {
+                    return name
+                }
+            }
+        }
+        return NSWorkspace.shared.frontmostApplication.flatMap(usableName)
+    }
+
+    /// Nil for anything that is not a meaningful destination, which the label
+    /// then falls back from rather than naming something confusing.
+    ///
+    /// The overlay is a non-activating panel and does not take focus, but
+    /// dictation started from the main window legitimately leaves this
+    /// application frontmost — and "Inserted into huh?" would be nonsense.
+    private static func usableName(_ app: NSRunningApplication) -> String? {
+        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return nil }
+        guard let name = app.localizedName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else { return nil }
+        return name
     }
 
     /// Whether an editable insertion target exists. Used only to choose between
