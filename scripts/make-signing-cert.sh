@@ -38,7 +38,17 @@ esac
 
 # A one-off passphrase, so the exported key is never written to disk
 # unprotected even for the seconds it exists in the temp directory.
-P12PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
+#
+# `head` has to come first. Written the other way round -- tr reading
+# /dev/urandom, piped into head -- tr is still reading when head has taken
+# what it wants, takes SIGPIPE, and exits 141; `set -o pipefail` propagates
+# that and `set -e` kills the script before it generates anything. This
+# script exited 141 on every run until it was written this way.
+P12PASS="$(head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c 32)"
+if [ "${#P12PASS}" -ne 32 ]; then
+    echo "!! could not generate a passphrase" >&2
+    exit 1
+fi
 
 echo "==> generating key + certificate for \"$NAME\""
 cat > "$TMP/ext.cnf" <<CNF

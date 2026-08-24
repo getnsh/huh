@@ -63,8 +63,9 @@ control; after they complete, the application runs fully offline.
 
 ## Installing on another machine
 
-huh? is distributed as source and built on the machine that runs it. There is no
-signed release download.
+huh? is distributed two ways: a zip attached to each GitHub release, and source
+you build yourself. Neither is notarised yet — see **Release integrity** below
+for what that means and what stands in for it.
 
 ```bash
 git clone https://github.com/getnsh/huh.git
@@ -100,6 +101,41 @@ again. A stable local certificate keeps grants across rebuilds — see
 `~/Library/Application Support/Huh/` and are not synced. To move a dictionary to
 another machine, copy `dictionary.json` — it is plain JSON and is read on launch.
 
+## Release integrity
+
+Downloaded builds are **not notarised**. Apple's notary service requires a paid
+Developer Program membership and a Developer ID Application certificate, and
+this project has neither yet.
+
+That absence is not cosmetic. Without notarisation, macOS refuses to open the
+app at all until the quarantine flag is cleared, so the install instructions
+have to tell people to run `xattr -cr` — which is precisely the step that
+removes the warning they would otherwise get about an unverified binary. The
+app then asks for the microphone and for Accessibility, which is permission to
+read and write text in every other application. A swapped release asset, with
+those instructions, would install silently.
+
+Until notarisation is possible, a published SHA-256 stands in for it:
+
+* `./scripts/release.sh` builds, stages, archives with `ditto` (so the
+  signature and extended attributes survive, and there is no `__MACOSX`
+  directory), computes the digest, and verifies the archive against its own
+  checksum before reporting success.
+* `./scripts/release.sh --publish` attaches the archive and `SHASUMS.txt` to
+  the GitHub release. **The digest must also go in the release notes**, because
+  a checksum stored beside the file it describes proves nothing — an attacker
+  who can replace one can replace the other. The release notes are a separate
+  surface with its own audit log.
+* Both `README.md` and the bundled `INSTALL.txt` tell users to check the
+  checksum *before* running `xattr`, and say why that order matters.
+
+What this does and does not buy: it makes a swap detectable by anyone who
+checks, and it gives every past download a fixed identity. It does not stop a
+swap, and it does nothing for users who skip the step. Notarisation remains the
+correct fix — once a Developer ID exists, set `SIGN_ID` and store a notarytool
+profile, and `release.sh` will notarise and staple automatically, at which point
+the `xattr` instruction can be deleted outright.
+
 ## Release checklist
 
 1. Update `VERSION` and `CHANGELOG.md`.
@@ -108,3 +144,5 @@ another machine, copy `dictionary.json` — it is plain JSON and is read on laun
 4. Verify on a machine that has never run the application, to catch anything
    that depends on existing permission grants or local state.
 5. Tag the release.
+6. `./scripts/release.sh --publish` — archive, checksum, attach.
+7. Paste the SHA-256 into the release notes.

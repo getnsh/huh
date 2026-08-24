@@ -14,8 +14,11 @@
 set -euo pipefail
 
 APP_NAME="huh?.app"
-SUPPORT="$HOME/Library/Application Support/Huh"
-LEGACY="$HOME/Library/Application Support/Murmur"
+# ${HOME:?} rather than $HOME. These paths are handed to `rm -rf` below, and
+# with HOME unset or empty they would resolve to /Library/Application
+# Support/... -- system-wide, and not this application's to delete.
+SUPPORT="${HOME:?HOME is not set}/Library/Application Support/Huh"
+LEGACY="${HOME:?HOME is not set}/Library/Application Support/Murmur"
 BUNDLE_ID="com.getnsh.huh"
 
 PURGE=false
@@ -65,7 +68,7 @@ if [ "$PURGE" = true ]; then
         [ "$REPLY" = "delete" ] || { echo "==> cancelled; nothing was deleted"; exit 0; }
     fi
     echo "==> deleting stored data"
-    rm -rf "$SUPPORT" "$LEGACY"
+    rm -rf "${SUPPORT:?}" "${LEGACY:?}"
 else
     if [ -d "$SUPPORT" ] || [ -d "$LEGACY" ]; then
         echo

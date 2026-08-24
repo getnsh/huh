@@ -117,16 +117,27 @@ Grab the latest zip from [Releases](https://github.com/getnsh/huh/releases), the
 
 ```bash
 cd ~/Downloads
+
+# 1. Check you got what was published. Compare this against the SHA-256
+#    printed in the release notes; if it differs, stop.
+shasum -a 256 huh-0.3.0.zip
+
+# 2. Then install.
 unzip huh-*.zip
 xattr -cr "huh-0.3.0/huh?.app"
 mv "huh-0.3.0/huh?.app" /Applications/
 open "/Applications/huh?.app"
 ```
 
-The `xattr` step is required. Builds are signed on the machine that produced
-them rather than by Apple, so macOS refuses to open the app until the quarantine
-flag it attached on download is cleared. Nothing else is needed — no Xcode, no
-Swift, no build.
+Do the checksum first, and do not skip it. The `xattr` step clears the
+quarantine flag macOS attaches to anything downloaded, and that flag is the one
+thing standing between an unverified binary and an application that asks for
+your microphone and the ability to type into every window you have open. It is
+required because builds are signed on the machine that produced them rather than
+by Apple — until this project is notarised, checking the checksum is what takes
+the place of Gatekeeper's check.
+
+Nothing else is needed — no Xcode, no Swift, no build.
 
 `uninstall.sh` is in the same folder. Run it bare to remove the app and keep your
 data, or with `--all` to delete the transcripts and dictionaries too.
