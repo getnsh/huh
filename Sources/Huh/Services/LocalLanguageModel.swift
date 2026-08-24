@@ -80,6 +80,30 @@ final class LocalLanguageModel: ObservableObject {
 
     // MARK: - Loading
 
+    /// The exact weights this application will download, pinned to a commit.
+    ///
+    /// `LLMRegistry.qwen3_4b_4bit` names the same repository but leaves the
+    /// revision at its default of `main` -- a branch, which is to say a moving
+    /// target. Whatever is at the head of that branch on the day a user first
+    /// asks for a summary is what runs on their machine, and neither MLX nor
+    /// the HuggingFace client verifies a digest afterwards; the transport is
+    /// the only integrity check there is.
+    ///
+    /// A commit hash removes the moving part. If the upstream account is ever
+    /// compromised, or the repository is force-pushed, the download fails
+    /// rather than quietly delivering different weights into a program that
+    /// summarises private meetings.
+    ///
+    /// To move to newer weights, change this deliberately: read the model card,
+    /// then take the commit from
+    /// `https://huggingface.co/api/models/mlx-community/Qwen3-4B-4bit`.
+    static let modelConfiguration = ModelConfiguration(
+        id: "mlx-community/Qwen3-4B-4bit",
+        revision: "4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25",
+        defaultPrompt: "Why is the sky blue?",
+        extraEOSTokens: ["<|im_end|>"]
+    )
+
     /// Loads the model, downloading it first if necessary. Single-flight: a
     /// second caller awaits the first rather than starting a parallel download
     /// of several gigabytes.
@@ -91,7 +115,7 @@ final class LocalLanguageModel: ObservableObject {
             state = .downloading(0, "")
             do {
                 let loaded = try await #huggingFaceLoadModelContainer(
-                    configuration: LLMRegistry.qwen3_4b_4bit,
+                    configuration: LocalLanguageModel.modelConfiguration,
                     progressHandler: { progress in
                         // Delivered off the main actor, and often several times
                         // a second.
