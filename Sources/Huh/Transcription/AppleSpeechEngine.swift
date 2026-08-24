@@ -1,4 +1,5 @@
 import AVFoundation
+import Foundation
 import Speech
 
 /// On-device transcription via `SpeechAnalyzer` and `SpeechTranscriber`
@@ -23,8 +24,28 @@ final class AppleSpeechEngine: TranscriptionEngine {
     private var cachedFormat: AVAudioFormat?
 
     private var analyzer: SpeechAnalyzer?
-    private var continuation: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<String, Error>?
+
+    /// Guards `continuation` alone.
+    ///
+    /// `append` is called from CoreAudio's render thread; `finishUtterance`
+    /// and `cancelUtterance` run on the main actor and set the continuation to
+    /// nil. `AsyncStream.Continuation.yield` is itself thread-safe, but the
+    /// *optional property holding it* is not: reading it is a pointer load
+    /// plus a retain, and racing that against a write is an over-release, not
+    /// a dropped buffer.
+    ///
+    /// The window is not narrow. `AudioCapture.idleGrace` keeps buffers
+    /// arriving for seconds after the key comes up, so every single utterance
+    /// ends inside it. This is the default engine, and it was the one without
+    /// a lock -- `ParakeetEngine` has had this right all along.
+    private let continuationLock = NSLock()
+    private var _continuation: AsyncStream<AnalyzerInput>.Continuation?
+
+    private var continuation: AsyncStream<AnalyzerInput>.Continuation? {
+        get { continuationLock.lock(); defer { continuationLock.unlock() }; return _continuation }
+        set { continuationLock.lock(); _continuation = newValue; continuationLock.unlock() }
+    }
 
     init(locale: Locale) {
         self.requestedLocale = locale
@@ -135,7 +156,13 @@ final class AppleSpeechEngine: TranscriptionEngine {
     }
 
     func append(_ buffer: AVAudioPCMBuffer) {
-        continuation?.yield(AnalyzerInput(buffer: buffer))
+        // The strong reference is taken under the lock and the yield happens
+        // outside it, so the render thread holds the lock for a pointer copy
+        // and nothing more.
+        continuationLock.lock()
+        let sink = _continuation
+        continuationLock.unlock()
+        sink?.yield(AnalyzerInput(buffer: buffer))
     }
 
     func finishUtterance() async throws -> String {
