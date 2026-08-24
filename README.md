@@ -120,12 +120,12 @@ cd ~/Downloads
 
 # 1. Check you got what was published. Compare this against the SHA-256
 #    printed in the release notes; if it differs, stop.
-shasum -a 256 huh-0.3.0.zip
+shasum -a 256 huh-0.3.1.zip
 
 # 2. Then install.
 unzip huh-*.zip
-xattr -cr "huh-0.3.0/huh?.app"
-mv "huh-0.3.0/huh?.app" /Applications/
+xattr -cr "huh-0.3.1/huh?.app"
+mv "huh-0.3.1/huh?.app" /Applications/
 open "/Applications/huh?.app"
 ```
 

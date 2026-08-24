@@ -4,7 +4,68 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] — Unreleased
+## [0.3.1] — 2026-08-24
+
+A security release. Nothing user-facing changes except one refusal: dictation
+into a password field now stops rather than falling back to the clipboard.
+
+### Security
+
+- **Dictation is refused when a password field has focus, or when any
+  application has engaged secure input.** An `NSSecureTextField` reports
+  `kAXTextFieldRole` exactly as an ordinary text field does; only its subrole
+  distinguishes it, and nothing checked. Worse, when accessibility insertion
+  failed the fallback wrote the spoken text to the system pasteboard first, and
+  secure input makes the window server discard the synthetic paste — so the
+  text was left on the clipboard and typed nowhere. Both halves failed toward
+  the worst outcome.
+- **Transcripts no longer reach the user's other devices.** Both pasteboard
+  writes use `prepareForNewContents(with: .currentHostOnly)`. The
+  `org.nspasteboard.ConcealedType` marker used previously is a convention that
+  third-party clipboard managers honour; macOS does not consult it, and
+  Universal Clipboard was carrying dictated sentences to other devices despite
+  a comment claiming otherwise.
+- **The clipboard fallback marks and confines what it leaves behind.** Reached
+  by holding the key with a non-editable window focused, it previously wrote the
+  transcript with no marker and no restore.
+- **Downloaded summary weights are pinned to a commit** rather than tracking
+  the `main` branch of a HuggingFace repository. Nothing verifies a digest
+  after download, so the transport was the only integrity check; a force-push
+  or a compromised upstream account could have substituted the weights that
+  read a user's meetings.
+- **Every release now publishes a SHA-256**, in the release notes and as a
+  `SHASUMS.txt` asset, and the install instructions check it before clearing
+  quarantine. `scripts/release.sh` builds, archives, and verifies the archive
+  against its own checksum; it will notarise and staple once a Developer ID
+  exists. See `docs/DEPLOYMENT.md` for what a checksum does and does not buy.
+- Stored files are written `0600` inside a `0700` directory.
+
+### Fixed
+
+- **Three stores could overwrite a file they had failed to read.**
+  `DecisionLedger` had no load-failure flag at all, so one damaged byte in
+  `decisions.json` emptied it and the next write replaced a full history of
+  answered questions with a single entry — every dismissed suggestion would
+  return, permanently. `DictionaryStore` and `PeopleStore` set the flag and
+  ignored it when saving; `DictionaryStore` carried a comment stating the
+  invariant directly above the code that broke it.
+- **Clearing history now clears the salvaged copy of it.**
+  `history.corrupt.json` is a complete copy of the transcripts, written when
+  `history.json` cannot be parsed, and nothing removed it — so deleting
+  transcripts left them on disk under a name nobody looks for.
+- **Data races between the CoreAudio render thread and the main thread.**
+  `idleGrace` keeps buffers arriving after the key is released, so `stop()`
+  released the closure receiving them while it was still being read. A racing
+  read of a closure or class reference is an over-release, not a dropped
+  buffer. `AudioCapture` and `AppleSpeechEngine` now lock the shared fields, as
+  `ParakeetEngine` already did.
+- `scripts/make-signing-cert.sh` exited 141 before generating anything: `tr`
+  reading `/dev/urandom` took `SIGPIPE` when `head` exited, and `pipefail`
+  propagated it. It had never produced the stable signing identity that keeps
+  permission grants across rebuilds.
+- `scripts/uninstall.sh` built `rm -rf` paths from an unguarded `$HOME`.
+
+## [0.3.0] — 2026-08-23
 
 ### Added
 
