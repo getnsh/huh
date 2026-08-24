@@ -6,6 +6,8 @@
 
 Hold a key, speak, release. The text appears wherever the cursor is.
 
+### [getnsh.github.io/huh](https://getnsh.github.io/huh/)
+
 [Install](#install) · [Usage](#usage) · [Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Privacy](PRIVACY.md) · [Security](SECURITY.md)
 
 </div>
