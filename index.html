@@ -115,6 +115,26 @@ p.body code{font-family:var(--mono);font-size:13px;color:var(--t1);
   justify-content:flex-end;overflow:hidden;
   padding:0 0 calc(var(--dock) + var(--dock-gap)*2 + clamp(14px,3.5vh,44px) + env(safe-area-inset-bottom))}
 
+/* ── First paint ──────────────────────────────────────────
+   Two hundred thousand grains have to find the nodal lines before
+   the plate is worth looking at, and that is real arithmetic. It is
+   done in slices of a few milliseconds across several frames rather
+   than in one blocking call, and this covers the seam. */
+.boot{position:fixed;inset:0;z-index:400;background:var(--base);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .5s var(--quick);will-change:opacity}
+.boot.gone{opacity:0;pointer-events:none}
+.boot-in{text-align:center}
+.boot-mark{font-size:44px;font-weight:600;letter-spacing:-.045em;color:var(--t1)}
+.boot-mark span{color:var(--live)}
+.boot-cap{font-family:var(--mono);font-size:11.5px;color:var(--t3);
+  margin:14px 0 16px;letter-spacing:.02em}
+.boot-track{width:180px;height:1px;background:var(--border);margin:0 auto;
+  overflow:hidden}
+.boot-track i{display:block;height:100%;width:0;background:var(--live);
+  transition:width .12s linear}
+@media(prefers-reduced-motion:reduce){.boot{display:none}}
+
 /* 100lvh, not inset:0 — on a phone the fixed viewport shrinks
    when the browser toolbars come in, and the plate would end in
    a hard black band across the bottom of the screen. */
@@ -466,6 +486,14 @@ footer{padding:64px 0 40px}
 <body>
 
 <canvas id="plate" aria-hidden="true"></canvas>
+
+<div class="boot" id="boot">
+  <div class="boot-in">
+    <div class="boot-mark">huh<span>?</span></div>
+    <p class="boot-cap">settling the plate</p>
+    <div class="boot-track"><i id="bootFill"></i></div>
+  </div>
+</div>
 
 <div class="cursor" id="cursor" aria-hidden="true">
   <span class="lvl"></span><span class="ring"></span><span class="dot"></span>
@@ -999,7 +1027,16 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
   /* Two ceilings, both empirical: the frame budget is spent on
      pushing the buffer to the screen and on scattered writes into
      it, and these are where 60fps stops being comfortable. */
-  var PIXEL_CAP=4200000, GRAIN_CAP=44000;
+  /* Supersampled: the buffer is drawn at twice the display's own
+     resolution and let the browser minify it. Downscaling is the one
+     direction that improves quality -- each grain lands as a fraction
+     of a screen pixel, antialiased rather than a hard square, so the
+     sand can be finer than the hardware can actually draw. */
+  var SS=1.8, PIXEL_CAP=13000000, GRAIN_CAP=220000;
+  /* How wide the sand piles, as a fraction of one nodal spacing. */
+  var BAND=0.16;
+  /* Only where a device pixel is small enough to spare. */
+  var CROSS=false;
 
   /* Ascending modes: the page opens on a simple figure and
      grows more intricate the further in you read. */
@@ -1013,7 +1050,7 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     for(var i=0;i<32;i++){
       var k=i/31;
       var r=Math.round(104+(168-104)*k), gg=Math.round(104+(134-104)*k), b=Math.round(112+(255-112)*k);
-      var a=Math.round(26+229*k*k);
+      var a=Math.round(52+203*Math.pow(k,1.45));
       LUT[i]=(a<<24)|(b<<16)|(gg<<8)|r;
       HALO[i]=(((a*0.38)|0)<<24)|(b<<16)|(gg<<8)|r;
     }
@@ -1027,23 +1064,25 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
        the compositor does with this layer every frame — which
        matters far more on a phone than a crisp dot does. */
     SMALL=W<700;
-    /* Never below the display's own resolution.
-       Rendering under it and letting the browser scale the canvas
-       up is what turned a crisp grain into a smear: a 1.4x bilinear
-       upscale spreads every one-pixel dot across two, and a field
-       made entirely of one-pixel dots becomes mush. Phones never had
-       the problem because they were already drawn at device pixels.
-       The cap is on total buffer pixels rather than on the ratio, so
-       a 5K panel asks for a large frame rather than an impossible
-       one, and the shortfall is taken as softness only when there is
-       genuinely no other choice. */
+    /* Never below the display's own resolution, and on anything
+       bigger than a phone, above it.
+       Rendering under it and letting the browser scale up is what
+       turned a crisp grain into a smear. Going the other way is the
+       opposite: the browser minifies instead, and a grain lands on a
+       fraction of a screen pixel, antialiased rather than a hard
+       square -- sand finer than the hardware can actually draw.
+       A phone is already at two or three device pixels per point and
+       has the least power to spend, so it takes the native ratio and
+       no more. The cap is on total buffer pixels, so a 5K panel asks
+       for a large frame rather than an impossible one. */
     var dpr=Math.min(window.devicePixelRatio||1,2);
-    S=dpr;
+    S=SMALL?dpr:Math.min(dpr*SS,3);
     if(W*H*S*S>PIXEL_CAP)S=Math.sqrt(PIXEL_CAP/(W*H));
     if(S<0.75)S=0.75;
     /* A phone screen is small enough that the full mode numbers
        pack the nodal lines too close to read as lines at all, so
        the figure is coarsened to suit the canvas it is drawn on. */
+    CROSS=false;
     MSC=SMALL?0.58:1;
     /* Coarser modes mean gentler gradients, so the plate is
        driven harder to keep the grains finding the lines just
@@ -1059,7 +1098,7 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     /* Grains are counted per buffer pixel, not per screen. A sharper
        canvas has more pixels to fill, and holding the count constant
        would just thin the sand out until the figure faded. */
-    var want=Math.round(PW*PH*(SMALL?0.0072:0.0160)*QUAL);
+    var want=Math.round(PW*PH*(SMALL?0.0300:0.0260)*QUAL);
     if(want>GRAIN_CAP)want=GRAIN_CAP;
     if(COUNT!==want||!xs){
       COUNT=want;xs=new Float32Array(COUNT);ys=new Float32Array(COUNT);
@@ -1067,8 +1106,15 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     }
     PWH=PW*PH;prev=new Int32Array(COUNT);pn=0;
   }
-  size();
+  /* size() allocates the frame buffer -- tens of megabytes at this
+     resolution -- and scatters a couple of hundred thousand grains.
+     Called inline it blocks the main thread before the browser has
+     painted anything, so the cover that is supposed to hide the wait
+     could not appear until the wait was over. It runs after two
+     frames instead: one to paint the cover, one to be sure it is up. */
+  var ready=false;
   var rz=0,resize=function(){clearTimeout(rz);rz=setTimeout(function(){
+    if(!ready)return;
     if(cv.clientWidth!==W||cv.clientHeight!==H){size();warm(60);}
   },180)};
   addEventListener('resize',resize,{passive:true});
@@ -1106,18 +1152,26 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     /* The pointer bends the mode either side of that, so moving
        across the page morphs the figure under your hand. */
     if(P.has){
-      tn+=(P.x/W-0.5)*1.35;
-      tm+=(P.y/H-0.5)*1.35;
+      /* A nudge, not a steering wheel. At 1.35 the whole figure warped
+         as the cursor crossed the page, which read as the pattern being
+         dragged around rather than as a plate being touched. */
+      tn+=(P.x/W-0.5)*0.55;
+      tm+=(P.y/H-0.5)*0.55;
     }
     /* Voice does what the bow did: loudness shakes the plate,
        pitch moves the figure. */
     if(MIC.on){
-      tvib=VB+MIC.level*0.062;
-      tn+=MIC.tilt*1.6;tm-=MIC.tilt*1.1;
+      tvib=VB+MIC.level*0.105;
+      /* Pitch moves the figure, loudness shakes it. Both were timid;
+         the whole point of offering the microphone is that the pattern
+         visibly rearranges while you are still talking. */
+      tn+=MIC.tilt*3.4+MIC.level*1.5;
+      tm-=MIC.tilt*2.4-MIC.level*0.9;
     }else{
       tvib=VB+P.v*0.030;
     }
-    n+=(tn-n)*0.085;m+=(tm-m)*0.085;
+    var chase=MIC.on?0.13:0.085;
+    n+=(tn-n)*chase;m+=(tm-m)*chase;
     vib+=(tvib-vib)*0.16;
 
     /* Square cells on a rectangular plate: whichever axis is
@@ -1134,18 +1188,27 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     /* The settled band around a nodal line is as wide as the
        minimum step divided by how steeply the field changes there,
        so a coarser figure needs a smaller step to stay crisp. */
-    var minWalk=0.0028*MSC, has=P.has, phx=P.x/W, phy=P.y/H;
+    /* The settled band around a nodal line is minWalk/(vib*gradient),
+       and it should be the same width on every screen. Deriving the floor
+       from the drive and the mode scale keeps it that way. Set as a bare
+       constant -- which is what this was -- the desktop band came out
+       1.7x wider than the phone's, and the lines read as smears. */
+    var minWalk=BAND*VB*MSC, has=P.has, phx=P.x/W, phy=P.y/H;
 
     if(!paint)return;
 
     /* Clearing only the pixels drawn last frame keeps this
        O(grains) rather than O(viewport). */
-    for(var c=0;c<pn;c++){
-      var q=prev[c],col=q%PW;px[q]=0;
-      if(q>=PW)px[q-PW]=0;
-      if(q+PW<PWH)px[q+PW]=0;
-      if(col>0)px[q-1]=0;
-      if(col<PW-1)px[q+1]=0;
+    if(CROSS){
+      for(var c=0;c<pn;c++){
+        var q=prev[c],col=q%PW;px[q]=0;
+        if(q>=PW)px[q-PW]=0;
+        if(q+PW<PWH)px[q+PW]=0;
+        if(col>0)px[q-1]=0;
+        if(col<PW-1)px[q+1]=0;
+      }
+    }else{
+      for(var c2=0;c2<pn;c2++)px[prev[c2]]=0;
     }
     pn=0;
     for(var i=0;i<COUNT;i++){
@@ -1158,7 +1221,8 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
          a vibrating plate and the sand near it jumps. */
       if(has){
         var dx=x-phx,dy=(y-phy)*(1/AR),d2=dx*dx+dy*dy;
-        if(d2<0.010)a+=(0.010-d2)*(2.2+P.v*9);
+        /* Tighter and gentler: a fingertip on the plate, not a fist. */
+        if(d2<0.0055)a+=(0.0055-d2)*(1.6+P.v*4.5);
       }
       if(a<minWalk)a=minWalk;
 
@@ -1175,7 +1239,7 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
       px[q2]=LUT[lv];
       /* A faint cross on the settled grains only, so the nodal
          curves read as drawn lines rather than as speckle. */
-      if(lv>18){
+      if(lv>18&&CROSS){
         var hv=HALO[lv];
         if(iy>0)px[q2-PW]=hv;
         if(iy<PH-1)px[q2+PW]=hv;
@@ -1192,8 +1256,8 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
      a coarser buffer upscales into blobs, which looks broken,
      whereas fewer grains at a lower frame rate just looks calmer. */
   function degrade(){
-    QUAL=QUAL>0.7?0.62:0.4;
-    budget=QUAL>0.5?42:72;
+    QUAL=QUAL>0.7?0.72:0.5;
+    budget=QUAL>0.6?36:56;
     size();warm(60);
   }
 
@@ -1213,19 +1277,81 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
       if(hist.length>36){
         hist.shift();
         var h=hist.slice().sort(function(a,b){return a-b});
-        if(h[18]>46){degrade();hist.length=0;}
+        /* Only when it is genuinely struggling. The ladder used to
+           fire at 46ms and quietly take away a third of the sand on any
+           machine that dipped once; detail is the point here, and a
+           plate drifting at 25fps still looks like sand. */
+        if(h[18]>92){degrade();hist.length=0;}
       }
     }
   }
 
   docH=Math.max(1,document.documentElement.scrollHeight-innerHeight);
-  /* Settle the figure before the first frame is drawn. Without
-     this the page opens on a few hundred milliseconds of static
-     while the grains find the nodal lines — which, on a slow
-     device, is all anyone ever sees. */
-  warm(170);
-  if(REDUCE){warm(120);step(true);}
-  else raf=requestAnimationFrame(tick);
+
+  /* Settling, in slices. The figure has to be formed before the
+     first frame is shown -- otherwise the page opens on static, and
+     on a slow device that is all anyone ever sees -- but doing all
+     of it in one call blocks the main thread long enough to drop the
+     opening frames. Each slice runs a few milliseconds and yields,
+     so scrolling and layout stay responsive while the grains find
+     their lines behind the cover. */
+  var boot=document.getElementById('boot'),
+      bootFill=document.getElementById('bootFill'),
+      WARM=180, warmed=0, bootT0=performance.now();
+
+  function finishBoot(){
+    if(!boot)return;
+    boot.classList.add('gone');
+    setTimeout(function(){
+      if(boot&&boot.parentNode)boot.parentNode.removeChild(boot);
+      boot=null;
+    },600);
+  }
+
+  /* Never only requestAnimationFrame. A browser pauses it entirely in
+     a background tab, and this sequence is what takes the cover off --
+     so a page opened with a middle click sat behind a loading screen
+     that could never lift, for as long as the tab stayed unfocused.
+     Every step here has a timer behind it. */
+  function next(fn){
+    var done=false;
+    var id=requestAnimationFrame(function(){ if(!done){done=true;fn();} });
+    setTimeout(function(){ if(!done){done=true;cancelAnimationFrame(id);fn();} },140);
+  }
+
+  var began=false;
+  function begin(){
+    if(began)return;
+    began=true;
+    size();
+    ready=true;
+    docH=Math.max(1,document.documentElement.scrollHeight-innerHeight);
+    bootT0=performance.now();
+
+    if(REDUCE){ warm(150); step(true); finishBoot(); return; }
+    settle();
+  }
+
+  function settle(){
+    var t0=performance.now();
+    /* Slices exist so the page stays responsive while somebody is
+       looking at it. Nobody is looking at a hidden tab, so it just
+       gets on with it in one pass. */
+    var slice=document.hidden?1e9:10;
+    while(warmed<WARM && performance.now()-t0<slice){ step(false); warmed++; }
+    if(bootFill)bootFill.style.width=Math.round(100*warmed/WARM)+'%';
+    /* However slow the machine, the cover comes off. */
+    if(warmed<WARM && performance.now()-bootT0<4000){
+      next(settle);
+    }else{
+      step(true);
+      raf=requestAnimationFrame(tick);
+      next(finishBoot);
+    }
+  }
+
+  requestAnimationFrame(function(){ requestAnimationFrame(begin); });
+  setTimeout(begin,260);
 
   if(!FINE){
     var h0=document.getElementById('hintText');
@@ -1308,7 +1434,9 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
         for(i=0;i<MIC.bins;i++){var v=MIC.data[i]/255;if(v>peak)peak=v;}
         /* A higher floor means a quiet room is not amplified up
            into a signal; the gain only opens for real sound. */
-        MIC.ref=Math.max(0.34,peak>MIC.ref?peak:MIC.ref*0.992);
+        /* A lower floor opens the gain further, so ordinary speech
+           at arm's length drives the plate rather than only a shout. */
+        MIC.ref=Math.max(0.22,peak>MIC.ref?peak:MIC.ref*0.990);
         for(i=0;i<MIC.bins;i++){
           var q=(MIC.data[i]/255)/MIC.ref;
           MIC.norm[i]=q>1?1:q;
@@ -1320,12 +1448,14 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
         /* Noise gate: everything under the gate is treated as the
            room, not as you, and the rest is rescaled so speech
            still reaches the top of the range. */
-        var raw=k?sum/k*1.5:0, GATE=0.22;
+        var raw=k?sum/k*1.9:0, GATE=0.11;
         var lv2=raw>GATE?(raw-GATE)/(1-GATE):0;
-        MIC.level+=(Math.min(1,lv2)-MIC.level)*(lv2>MIC.level?0.5:0.14);
+        /* Fast to rise, slower to fall: it should jump on a syllable
+           and ease back, not chatter. */
+        MIC.level+=(Math.min(1,lv2)-MIC.level)*(lv2>MIC.level?0.62:0.11);
         var cen=sum>0.001?(wsum/sum)/(MIC.bins*0.55):0.5;
-        if(MIC.level>0.04)MIC.tilt+=((cen-0.32)*2.2-MIC.tilt)*0.09;
-        else MIC.tilt*=0.97;
+        if(MIC.level>0.025)MIC.tilt+=((cen-0.32)*3.1-MIC.tilt)*0.14;
+        else MIC.tilt*=0.975;
         if(MIC.level>0.03)P.v=Math.max(P.v,MIC.level);
         raf=requestAnimationFrame(read);
       })();
