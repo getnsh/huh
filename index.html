@@ -173,7 +173,7 @@ h1,h2,.lede,.big,p.body,.tc,.hint,.plate-note,.tr-line p,.foot,.pun .say,.pun .d
 @media(max-width:860px){.hero-copy{grid-template-columns:1fr;gap:24px}}
 
 /* ── Scenes ──────────────────────────────────────────────── */
-.scene{padding:clamp(96px,15vw,180px) 0;position:relative;z-index:1}
+.scene{padding:clamp(74px,9vw,122px) 0;position:relative;z-index:1}
 footer,#transcribe{position:relative;z-index:1}
 .offset{margin-left:0}
 @media(max-width:860px){.offset{margin-left:0}}
@@ -239,7 +239,7 @@ footer,#transcribe{position:relative;z-index:1}
 
 /* ── Transcription scrub ─────────────────────────────────── */
 #transcribe{padding:0}
-.tall{height:320vh}
+.tall{height:200vh}
 .sticky{position:sticky;top:0;height:100svh;display:flex;align-items:center;overflow:hidden}
 .tr-stack{width:min(100% - 40px,980px);margin-inline:auto}
 .tr-head{margin-bottom:clamp(24px,4vh,52px);max-width:56ch}
@@ -413,6 +413,9 @@ footer,#transcribe{position:relative;z-index:1}
              margin-top .26s var(--spring)}
 .hud.wide .hud-partial{max-height:120px;opacity:1;margin-top:14px}
 
+.sub-h{font-size:clamp(21px,3vw,30px);font-weight:600;letter-spacing:-.03em;
+  margin:clamp(46px,6vw,72px) 0 14px;color:var(--t1);max-width:26ch;text-wrap:balance}
+.sub-h .q{color:var(--live)}
 .stage-note{font-family:var(--mono);font-size:11.5px;line-height:1.8;
   color:var(--t3);max-width:70ch;margin:clamp(20px,3vw,30px) 0 0}
 @media(max-width:700px){
@@ -447,6 +450,121 @@ footer,#transcribe{position:relative;z-index:1}
   background:var(--raised);border:1px solid var(--soft);border-radius:5px;padding:1px 6px}
 .checks li i{font-style:normal;color:var(--live);flex:none;font-size:13px;
   line-height:1.75;font-family:var(--mono)}
+
+/* ── Feature stages ──────────────────────────────────────── */
+/* Both rebuilt from the application's own views: SummaryChoiceCard
+   and the proposal rows in DictionaryView. Same strings, same
+   ordering, same numbers — 2.5 GB, 4,096 tokens, the four buttons
+   in the order they actually sit in. */
+.fstage{position:relative;margin-top:clamp(26px,4vw,42px)}
+.fstage::before{content:"";position:absolute;inset:-7% -2%;z-index:0;pointer-events:none;
+  border-radius:50%;
+  background:radial-gradient(56% 54% at 50% 48%,rgba(10,10,10,.92),rgba(10,10,10,0) 70%)}
+.fcard{position:relative;z-index:1;width:min(100%,600px);
+  background:var(--raised);border:1px solid rgba(224,164,88,.28);
+  border-radius:12px;padding:16px;
+  box-shadow:0 18px 44px rgba(0,0,0,.5);
+  transition:opacity .34s var(--spring),transform .34s var(--spring)}
+.fcard.out{opacity:0;transform:translateY(-8px);pointer-events:none}
+.fhead{display:flex;gap:8px;align-items:flex-start}
+.fhead svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--warn)}
+.fhead b{display:block;font-size:13px;font-weight:500;color:var(--t1);line-height:1.4}
+.fhead p{margin:2px 0 0;font-size:11.5px;color:var(--t3);line-height:1.5}
+.frule{height:1px;background:var(--soft);margin:14px 0}
+.fopt{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+.fopt>svg{width:12px;height:12px;flex:none;width:16px;margin-top:3px}
+.fopt .oc{flex:1;min-width:0}
+.fopt .ot{font-size:12.5px;font-weight:500;color:var(--t1);line-height:1.4}
+.fopt .od{font-size:11.5px;color:var(--t3);line-height:1.55;margin:6px 0 0}
+.fopt .oa{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.fbtn{font:inherit;font-size:11.5px;font-weight:500;border-radius:7px;padding:5px 11px;
+  border:1px solid var(--border);background:var(--surface);color:var(--t1);
+  cursor:default;transition:all .14s var(--quick)}
+.fbtn.primary{background:var(--accent-fill,#F5F5F5);color:#0A0A0A;border-color:transparent}
+.fbtn.ghost{background:transparent;border-color:transparent;color:var(--t2)}
+.fbtn.press{transform:scale(.96);filter:brightness(.85)}
+.fbtn.live{border-color:var(--live);color:var(--live)}
+
+.fprog{margin:-4px 0 14px 26px;opacity:0;max-height:0;overflow:hidden;
+  transition:opacity .2s var(--quick),max-height .3s var(--spring)}
+.fprog.on{opacity:1;max-height:260px}
+.fprog .st{font-size:11.5px;color:var(--t2);font-variant-numeric:tabular-nums}
+.fprog .track{height:4px;border-radius:99px;background:var(--hover);margin:6px 0;overflow:hidden}
+.fprog .track i{display:block;height:100%;width:0;border-radius:99px;background:var(--live)}
+.fprog .pnote{font-size:10.5px;color:var(--t3);opacity:.8}
+
+.fsum{position:absolute;inset:0;z-index:1;width:min(100%,600px);
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;
+  opacity:0;transform:translateY(8px);pointer-events:none;
+  transition:opacity .34s var(--spring),transform .34s var(--spring);
+  box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.fsum.on{opacity:1;transform:none}
+.fsum .sh{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.fsum .sh svg{width:12px;height:12px;color:var(--live);flex:none}
+.fsum .sh b{font-size:12.5px;font-weight:500;color:var(--t1)}
+.fsum .sh em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--t3);
+  margin-left:auto}
+.fsum .body{font-size:12.5px;line-height:1.65;color:var(--t2);min-height:150px}
+.fsum .body h4{margin:0 0 4px;font-size:12px;font-weight:600;color:var(--t1)}
+.fsum .body ul{margin:0 0 12px;padding-left:16px}
+.fsum .body li{margin:2px 0}
+.fsum .cur{display:inline-block;width:1.5px;height:1em;background:var(--live);
+  vertical-align:-.15em;animation:blink 1.06s steps(1) infinite}
+
+/* ── Review queue ────────────────────────────────────────── */
+.qcard{position:relative;z-index:1;width:min(100%,600px);
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.qhead{display:flex;align-items:center;gap:9px;padding:12px 14px;
+  border-bottom:1px solid var(--soft);background:var(--raised)}
+.qhead b{font-size:12.5px;font-weight:500;color:var(--t1)}
+.qhead .n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--t3);
+  font-variant-numeric:tabular-nums}
+.qbody{padding:6px;min-height:132px;position:relative}
+.qrow{display:block;padding:8px 10px;border-radius:8px;
+  transition:opacity .32s var(--quick),transform .32s var(--spring),
+             max-height .32s var(--spring),margin .32s var(--spring);
+  max-height:90px;overflow:hidden}
+.qrow.gone{opacity:0;transform:translateX(26px);max-height:0;margin-bottom:-6px}
+.qtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qheard{font-family:var(--mono);font-size:12px;color:var(--bad)}
+.qtop .ar{font-size:9px;color:var(--t3);font-weight:600}
+.qwrite{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--live)}
+.qsp{flex:1}
+.qctx{font-size:11px;color:var(--t3);margin:6px 0 0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.qempty{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;opacity:0;
+  transition:opacity .4s var(--quick);pointer-events:none;text-align:center;padding:0 20px}
+.qempty.on{opacity:1}
+.qempty b{font-size:12.5px;color:var(--t2);font-weight:500}
+.qempty span{font-family:var(--mono);font-size:11px;color:var(--t3);line-height:1.7}
+.qtoast{position:absolute;left:50%;bottom:10px;transform:translate(-50%,6px);
+  display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:99px;
+  background:#141414;border:1px solid var(--border);
+  font-size:11.5px;color:var(--t2);opacity:0;white-space:nowrap;
+  transition:opacity .22s var(--quick),transform .22s var(--spring)}
+.qtoast.on{opacity:1;transform:translate(-50%,0)}
+.qtoast svg{width:11px;height:11px;color:var(--live);flex:none}
+
+@media(max-width:560px){
+  .fcard,.fsum{padding:13px}
+  .fopt .od,.fhead p{font-size:11px}
+  .fprog{margin-left:0}
+  .fsum .body{font-size:12px;min-height:190px}
+  /* A proposal row is a line of type and four buttons; at this width
+     the buttons need their own line, and the row has to be tall enough
+     to hold them or the sentence underneath gets clipped away. */
+  .qrow{max-height:158px;padding:9px 8px}
+  .qrow.gone{max-height:0}
+  .qbody{min-height:210px}
+  .qsp{flex-basis:100%;height:0;margin:0}
+  .qtop{gap:6px;row-gap:8px}
+  .qheard{font-size:11.5px}
+  .qwrite{font-size:12px}
+  .fbtn{font-size:11px;padding:4px 9px}
+  .qctx{white-space:normal;font-size:10.5px}
+}
 
 /* ── Dock ────────────────────────────────────────────────── */
 /* A floating island rather than a bar welded to the bottom:
@@ -754,6 +872,63 @@ footer{padding:64px 0 40px}
           <span><b id="modeLbl">what huh? writes</b></span></div>
       </div>
     </div>
+
+    <h3 class="sub-h rise offset">And asked about <span class="q">once</span>.</h3>
+    <p class="body rise offset" style="max-width:58ch">A word the recogniser did not know arrives here with the
+      sentence it appeared in. Answer it and the answer is kept — a term goes to the dictionary, a name goes to
+      People where nothing will revise it later, and a rejection is recorded too. Every outcome is written down,
+      so the same word is never put in front of you twice.</p>
+
+    <div class="fstage rise offset">
+      <div class="qcard" id="qcard" aria-hidden="true">
+        <div class="qhead">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="width:12px;height:12px;color:var(--live)"><path d="M2 4h12M2 8h12M2 12h7"/></svg>
+          <b>To review</b>
+          <span class="n" id="qCount">2 waiting</span>
+        </div>
+        <div class="qbody">
+
+          <div class="qrow" id="qrow1">
+            <div class="qtop">
+              <span class="qheard">cuber netties</span>
+              <span class="ar">→</span>
+              <span class="qwrite">Kubernetes</span>
+              <span class="qsp"></span>
+              <button class="fbtn ghost live" type="button">It's a name</button>
+              <button class="fbtn ghost" type="button">Dismiss</button>
+              <button class="fbtn" type="button" id="qAdd1">Add</button>
+            </div>
+            <p class="qctx">“…ship the cuber netties config to versel before thursday…”</p>
+          </div>
+
+          <div class="qrow" id="qrow2">
+            <div class="qtop">
+              <span class="qheard">ayda oconquo</span>
+              <span class="ar">→</span>
+              <span class="qwrite">Ada Okonkwo</span>
+              <span class="qsp"></span>
+              <button class="fbtn ghost live" type="button" id="qName2">It's a name</button>
+              <button class="fbtn ghost" type="button">Dismiss</button>
+              <button class="fbtn" type="button">Add</button>
+            </div>
+            <p class="qctx">“…ayda oconquo is taking the rollback, i'll do the migration…”</p>
+          </div>
+
+          <div class="qempty" id="qEmpty">
+            <b>Nothing to review</b>
+            <span>both were recorded — neither will be asked about again</span>
+          </div>
+
+          <div class="qtoast" id="qToast">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.9 5.7-4.6 5.1a.8.8 0 0 1-1.2 0L4 8.6a.8.8 0 1 1 1.2-1l1.5 1.7 4-4.5a.8.8 0 1 1 1.2 1Z"/></svg>
+            <span id="qToastText">Added to the dictionary</span>
+          </div>
+
+        </div>
+      </div>
+      <p class="stage-note">Rebuilt from the proposal rows in the application. “It's a name” files it under People
+        instead, where a settled spelling is never revised by a later pass.</p>
+    </div>
   </div>
 </section>
 
@@ -761,7 +936,7 @@ footer{padding:64px 0 40px}
 <section id="transcribe">
   <div class="tall"><div class="sticky"><div class="tr-stack">
     <div class="tr-head">
-      <p class="tc"><b>02:40</b><span></span>the long form</p>
+      <p class="tc"><b>03:30</b><span></span>the long form</p>
       <h2 style="max-width:16ch">An hour of talking, <span class="q">kept</span>.</h2>
       <p class="body" style="margin:14px 0 0">Record a meeting and it transcribes the
         whole thing on the same silicon — timestamps, speakers, and a summary you can
@@ -780,10 +955,89 @@ footer{padding:64px 0 40px}
   </div></div></div></div>
 </section>
 
+<!-- ═══ THE LONG MEETING ═══ -->
+<section class="scene">
+  <div class="wrap">
+    <p class="tc rise"><b>04:10</b><span></span>when the meeting is too long</p>
+    <h2 class="rise" style="max-width:15ch">A bigger model, <span class="q">still</span> on your Mac.</h2>
+    <p class="body rise" style="max-width:60ch">Apple's on-device model reads about two thousand words at a time. An
+      hour-long meeting is five times that, so summarising it means reading in pieces and stitching the notes
+      together — which loses something at every join. Rather than do that quietly, the app says so, and offers
+      a model big enough to read the whole thing in one pass. <strong>Qwen3 4B, 2.5 GB, downloaded once, then
+      offline forever.</strong> It is the one moment the app asks you to decide anything.</p>
+
+    <div class="fstage rise" style="min-height:430px">
+
+      <div class="fcard" id="fcard" aria-hidden="true">
+        <div class="fhead">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="4" width="14" height="8" rx="1.5"/><path d="M5.7 4v8M10.3 4v8"/></svg>
+          <div>
+            <b>This meeting is longer than the built-in model can read at once</b>
+            <p>8,412 words. Apple's on-device model holds about 2,000 at a time, so it would read this in 5 pieces and stitch the notes together — which loses detail at every join.</p>
+          </div>
+        </div>
+
+        <div class="frule"></div>
+
+        <div class="fopt">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--live)"><rect x="1" y="3" width="14" height="10" rx="2"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/><path d="M3.5 8h5"/></svg>
+          <div class="oc">
+            <div class="ot">Use Qwen3 4B — stays on this Mac</div>
+            <p class="od">Reads the whole meeting in one pass. Downloads about 2.5 GB once, then works offline forever, like the rest of the app. Nothing is ever sent anywhere.</p>
+            <div class="oa"><button class="fbtn primary" type="button" id="fDl">Download and Summarise</button></div>
+          </div>
+        </div>
+
+        <div class="fprog" id="fProg">
+          <div class="st" id="fSt">Downloading Qwen3 4B — 0%</div>
+          <div class="track"><i id="fBar"></i></div>
+          <div class="pnote">Downloads once. After this it runs offline and never asks again.</div>
+        </div>
+
+        <div class="fopt">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--t2)"><rect x="1.5" y="1.5" width="13" height="13" rx="2.5"/><path d="M6 10l4-4M6.6 6H10v3.4"/></svg>
+          <div class="oc">
+            <div class="ot">Send it to ChatGPT or Claude</div>
+            <p class="od">Copies the meeting and a prompt, then opens the site so you can paste it. These leave your Mac — that is the trade for not downloading anything. Roughly 11,216 tokens.</p>
+            <div class="oa">
+              <button class="fbtn" type="button">ChatGPT</button>
+              <button class="fbtn" type="button">Claude</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="fopt" style="margin-bottom:6px">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--t3)"><circle cx="8" cy="8" r="6.6"/><path d="M5.2 8.2l2 2 3.6-4"/></svg>
+          <div class="oc">
+            <div class="ot">Carry on with the built-in model</div>
+            <p class="od">You still get a summary. It will be less complete than one written from the whole meeting at once.</p>
+            <div class="oa">
+              <button class="fbtn" type="button">Summarise Anyway</button>
+              <button class="fbtn ghost" type="button">Always</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fsum" id="fsum" aria-hidden="true">
+        <div class="sh">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="14" height="10" rx="2"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/><path d="M3.5 8h5"/></svg>
+          <b>Summary</b>
+          <em id="fMeta">Qwen3 4B · on this Mac · 8,412 words in one pass</em>
+        </div>
+        <div class="body" id="fBody"></div>
+      </div>
+
+    </div>
+    <p class="stage-note">Rebuilt from the card the application actually shows, with its own wording and numbers.
+      The download figure is real: 2.5 GB, once, and never again.</p>
+  </div>
+</section>
+
 <!-- ═══ MEETINGS + NAMES ═══ -->
 <section class="scene">
   <div class="narrow">
-    <p class="tc rise"><b>03:50</b><span></span>recordings and names</p>
+    <p class="tc rise"><b>04:58</b><span></span>recordings and names</p>
     <h2 class="rise">An hour of audio.<br>Ninety seconds of waiting.</h2>
     <p class="body rise">
       Drop in a file — roughly forty times realtime on Apple silicon. Back come
@@ -807,7 +1061,7 @@ footer{padding:64px 0 40px}
 <!-- ═══ UNDER THE HOOD ═══ -->
 <section class="scene">
   <div class="wrap">
-    <p class="tc rise"><b>05:30</b><span></span>under the hood</p>
+    <p class="tc rise"><b>05:44</b><span></span>under the hood</p>
     <h2 class="rise">How it actually works.</h2>
     <p class="body rise">
       Audio never touches the disk. The dictionary enters the pipeline twice, at
@@ -1922,6 +2176,155 @@ if(FINE&&!REDUCE){
     if(vis&&!running){running=true;t0=null;if(!raf)raf=requestAnimationFrame(frame)}
     else if(!vis&&running){running=false;}
   },{threshold:0.25}).observe(stage);
+})();
+/* ═══ 12. THE REVIEW QUEUE ═══
+   Two proposals, answered the two different ways the application
+   offers: a term to the dictionary, a name to People. What matters
+   is the last beat — the queue does not refill, because every
+   outcome is recorded and nothing is asked twice. */
+(function queue(){
+  var card=document.getElementById('qcard');if(!card)return;
+  var r1=document.getElementById('qrow1'), r2=document.getElementById('qrow2'),
+      add1=document.getElementById('qAdd1'), name2=document.getElementById('qName2'),
+      empty=document.getElementById('qEmpty'), toast=document.getElementById('qToast'),
+      toastText=document.getElementById('qToastText'), count=document.getElementById('qCount');
+
+  var T={ press1:1700, gone1:2000, press2:3900, gone2:4200, done:5200, reset:9000 };
+  var raf=0, t0=null, run=false;
+
+  function reset(){
+    r1.classList.remove('gone'); r2.classList.remove('gone');
+    add1.classList.remove('press'); name2.classList.remove('press');
+    empty.classList.remove('on'); toast.classList.remove('on');
+    count.textContent='2 waiting';
+  }
+
+  function render(ms){
+    add1.classList.toggle('press', ms>=T.press1 && ms<T.press1+220);
+    name2.classList.toggle('press', ms>=T.press2 && ms<T.press2+220);
+    r1.classList.toggle('gone', ms>=T.gone1);
+    r2.classList.toggle('gone', ms>=T.gone2);
+
+    var n = ms>=T.gone2 ? 0 : (ms>=T.gone1 ? 1 : 2);
+    var want = n===0 ? 'nothing waiting' : (n===1 ? '1 waiting' : '2 waiting');
+    if(count.textContent!==want)count.textContent=want;
+
+    var showToast = (ms>=T.gone1 && ms<T.gone1+1500) || (ms>=T.gone2 && ms<T.gone2+1500);
+    toast.classList.toggle('on', showToast);
+    var txt = ms>=T.gone2 ? 'Filed under People — never revised' : 'Added to the dictionary';
+    if(showToast && toastText.textContent!==txt)toastText.textContent=txt;
+
+    empty.classList.toggle('on', ms>=T.done);
+  }
+
+  function frame(now){
+    raf=0; if(!run)return;
+    if(t0===null)t0=now;
+    var ms=(now-t0)%T.reset;
+    render(ms);
+    raf=requestAnimationFrame(frame);
+  }
+
+  if(REDUCE){ r1.classList.add('gone'); r2.classList.add('gone'); empty.classList.add('on');
+              count.textContent='nothing waiting'; return; }
+
+  reset();
+  new IntersectionObserver(function(e){
+    if(e[0].isIntersecting){ if(!run){run=true;t0=null;if(!raf)raf=requestAnimationFrame(frame);} }
+    else run=false;
+  },{threshold:0.3}).observe(card);
+})();
+
+/* ═══ 13. THE LONG MEETING ═══
+   The choice card, the download, and the summary that follows it.
+   The byte counts count up against the real 2.5 GB, because the
+   whole argument of this section is the size of the thing you are
+   being asked to accept once. */
+(function longMeeting(){
+  var card=document.getElementById('fcard');if(!card)return;
+  var dl=document.getElementById('fDl'), prog=document.getElementById('fProg'),
+      st=document.getElementById('fSt'), bar=document.getElementById('fBar'),
+      sum=document.getElementById('fsum'), body=document.getElementById('fBody');
+
+  var T={ press:2900, dlStart:3200, dlEnd:7400, loading:7400, swap:8100,
+          typeStart:8300, typeEnd:11800, reset:15000 };
+
+  var SUM=[
+    ['h','Decisions'],
+    ['li','Migration goes ahead this sprint; the rollback is owned separately.'],
+    ['li','Nobody deploys to production on a Friday.'],
+    ['h','Owners'],
+    ['li','Ada Okonkwo — rollback plan, written up before Thursday.'],
+    ['li','Migration and the schema change — blocking two other pieces of work.'],
+    ['h','Open'],
+    ['li','Whether the schema change can be split so the sprint is not held up.']
+  ];
+  var FULL=SUM.reduce(function(n,p){return n+p[1].length},0);
+
+  var raf=0,t0=null,run=false,lastN=-1;
+
+  function bytes(f){
+    var gb=2.5*f;
+    return (gb<1 ? Math.round(gb*1024)+' MB' : gb.toFixed(1)+' GB');
+  }
+
+  function paint(n){
+    if(n===lastN)return; lastN=n;
+    var left=n, html='', openList=false;
+    for(var i=0;i<SUM.length && left>0;i++){
+      var kind=SUM[i][0], text=SUM[i][1];
+      var slice=text.slice(0,left);
+      left-=text.length;
+      if(kind==='h'){
+        if(openList){html+='</ul>';openList=false;}
+        html+='<h4>'+slice+'</h4>';
+      }else{
+        if(!openList){html+='<ul>';openList=true;}
+        html+='<li>'+slice+'</li>';
+      }
+    }
+    if(openList)html+='</ul>';
+    if(n<FULL)html+='<span class="cur"></span>';
+    body.innerHTML=html;
+  }
+
+  function render(ms){
+    dl.classList.toggle('press', ms>=T.press && ms<T.press+240);
+
+    var downloading = ms>=T.dlStart && ms<T.swap;
+    prog.classList.toggle('on', downloading);
+    if(downloading){
+      var f=Math.min(1,(ms-T.dlStart)/(T.dlEnd-T.dlStart));
+      bar.style.width=(f*100).toFixed(1)+'%';
+      st.textContent = ms>=T.loading
+        ? 'Loading Qwen3 4B into memory…'
+        : 'Downloading Qwen3 4B — '+Math.round(f*100)+'%  ('+bytes(f)+' of 2.5 GB)';
+    }
+
+    card.classList.toggle('out', ms>=T.swap);
+    sum.classList.toggle('on', ms>=T.swap);
+
+    if(ms>=T.typeStart){
+      var p=Math.min(1,(ms-T.typeStart)/(T.typeEnd-T.typeStart));
+      paint(Math.round(p*FULL));
+    }else if(lastN!==0){ lastN=0; body.innerHTML=''; }
+  }
+
+  function frame(now){
+    raf=0; if(!run)return;
+    if(t0===null)t0=now;
+    var ms=(now-t0)%T.reset;
+    render(ms);
+    raf=requestAnimationFrame(frame);
+  }
+
+  if(REDUCE){
+    card.classList.add('out'); sum.classList.add('on'); paint(FULL); return;
+  }
+  new IntersectionObserver(function(e){
+    if(e[0].isIntersecting){ if(!run){run=true;t0=null;lastN=-1;if(!raf)raf=requestAnimationFrame(frame);} }
+    else run=false;
+  },{threshold:0.25}).observe(card);
 })();
 })();
 </script>
