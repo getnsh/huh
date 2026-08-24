@@ -155,11 +155,19 @@ final class DictionaryStore: ObservableObject {
     }
 
     func save() {
+        // A file that could not be parsed is never written over. It may be
+        // mid-edit by hand, or damaged in a way the user can still repair --
+        // and overwriting it with what little loaded turns a recoverable
+        // problem into a permanent one.
+        guard loadError == nil else {
+            Log.app.error("dictionary save suppressed: the store did not load cleanly")
+            return
+        }
         let file = DictionaryFile(version: 1, terms: terms, corrections: corrections)
         do {
             let data = try Storage.encoder.encode(file)
             isWritingOurselves = true
-            try data.write(to: Storage.dictionaryURL, options: .atomic)
+            try Storage.writePrivately(data, to: Storage.dictionaryURL)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.isWritingOurselves = false
             }

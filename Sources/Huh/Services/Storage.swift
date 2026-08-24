@@ -12,7 +12,16 @@ enum Storage {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         // Brand.productName, not Brand.name — the display name has a "?" in it.
         let dir = base.appendingPathComponent(Brand.productName, isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // 0700 on the directory and 0600 on everything in it. ~/Library is
+        // already 0700 on a stock system, so this changes nothing there --
+        // it matters the moment the tree is copied somewhere that is not:
+        // a backup, an archive, a sync folder, a `cp -R` to a shared disk.
+        // Transcripts and people's real names should not travel world-readable.
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
         migrateLegacyDataIfNeeded(into: dir, from: base)
         return dir
     }()
@@ -49,6 +58,16 @@ enum Storage {
         }
     }
 
+    /// Writes atomically and then restricts the result to the owner.
+    ///
+    /// The mode has to be applied after the write, not before: an atomic
+    /// write lands a fresh temporary file and renames it over the target, so
+    /// whatever mode the old file had is discarded every time.
+    static func writePrivately(_ data: Data, to url: URL) throws {
+        try data.write(to: url, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
     static var dictionaryURL: URL { directory.appendingPathComponent("dictionary.json") }
     static var historyURL: URL { directory.appendingPathComponent("history.json") }
     /// Names, held apart from the dictionary. See `PeopleStore`.
@@ -56,6 +75,9 @@ enum Storage {
     /// Every token the analysis pass has already asked about. See
     /// `DecisionLedger`.
     static var decisionsURL: URL { directory.appendingPathComponent("decisions.json") }
+    /// The copy taken when `history.json` cannot be parsed. It is a complete
+    /// copy of the transcripts, so clearing history has to clear it too.
+    static var corruptHistoryURL: URL { directory.appendingPathComponent("history.corrupt.json") }
 
     static let encoder: JSONEncoder = {
         let e = JSONEncoder()

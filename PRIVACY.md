@@ -24,10 +24,11 @@ Everything else stays on the machine.
 |---|---|---|
 | Microphone audio | Held in memory, delivered to the on-device recogniser | Discarded when the utterance ends; never written to disk |
 | Transcripts | `~/Library/Application Support/Huh/history.json` | Bounded to the most recent 500 entries |
+| Salvaged transcripts | `~/Library/Application Support/Huh/history.corrupt.json`, written only if `history.json` cannot be parsed | Removed when you delete or clear history |
 | Dictionary | `~/Library/Application Support/Huh/dictionary.json` | Until deleted |
 | People | `~/Library/Application Support/Huh/people.json` | Until deleted |
 | Review decisions | `~/Library/Application Support/Huh/decisions.json` | Until deleted |
-| Imported media | Read from the path selected; optionally moved to the Trash afterwards | Not copied |
+| Imported media | Read from the path selected; optionally moved to the Trash afterwards | Not copied, except on macOS 26, where the audio track is extracted to a temporary file and deleted when transcription finishes |
 | Preferences | `UserDefaults` under `com.getnsh.huh` | Until reset |
 | Downloaded models | `~/.cache/huggingface` | Until deleted; shared with other apps using that cache |
 | Transcript sent to ChatGPT or Claude | Your clipboard, then wherever you paste it | Governed by that provider, not by this application |

@@ -172,10 +172,18 @@ final class PeopleStore: ObservableObject {
     }
 
     func save() {
+        // A file that could not be parsed is never written over. It may be
+        // mid-edit by hand, or damaged in a way the user can still repair --
+        // and overwriting it with what little loaded turns a recoverable
+        // problem into a permanent one.
+        guard loadError == nil else {
+            Log.app.error("people save suppressed: the store did not load cleanly")
+            return
+        }
         do {
             let data = try Storage.encoder.encode(PeopleFile(version: 1, people: people))
             isWritingOurselves = true
-            try data.write(to: Storage.peopleURL, options: .atomic)
+            try Storage.writePrivately(data, to: Storage.peopleURL)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.isWritingOurselves = false
             }

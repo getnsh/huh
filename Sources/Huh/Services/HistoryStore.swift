@@ -99,12 +99,27 @@ final class HistoryStore: ObservableObject {
         Log.app.info("history delete: \(ids.count, privacy: .public)")
         transcripts.removeAll { ids.contains($0.id) }
         save()
+        discardCorruptCopy()
     }
 
     func clear() {
         Log.app.info("history cleared (\(self.transcripts.count, privacy: .public) removed)")
         transcripts.removeAll()
         save()
+        discardCorruptCopy()
+    }
+
+    /// Removes the salvage copy left behind by a failed parse.
+    ///
+    /// `history.corrupt.json` is a complete copy of the transcripts. Leaving
+    /// it in place after the user has deleted them means the deletion did not
+    /// happen: the text is still on disk, in the same directory, under a name
+    /// nobody thinks to look for.
+    private func discardCorruptCopy() {
+        let copy = Storage.corruptHistoryURL
+        guard FileManager.default.fileExists(atPath: copy.path) else { return }
+        try? FileManager.default.removeItem(at: copy)
+        Log.app.info("removed the salvaged copy of the transcript history")
     }
 
     func search(_ query: String) -> [Transcript] {
@@ -136,11 +151,10 @@ final class HistoryStore: ObservableObject {
             // and then saving -- which the next dictation would do within
             // seconds -- is what would actually destroy the history this is
             // trying to protect.
-            let backup = Storage.historyURL
-                .deletingLastPathComponent()
-                .appendingPathComponent("history.corrupt.json")
+            let backup = Storage.corruptHistoryURL
             try? FileManager.default.removeItem(at: backup)
             try? FileManager.default.copyItem(at: Storage.historyURL, to: backup)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backup.path)
 
             loadError = "Transcript history couldn't be read. The file has been left untouched and copied to history.corrupt.json; nothing new will be saved until it is fixed or removed."
             Log.app.error("history load failed, refusing to write: \(error.localizedDescription)")
@@ -155,7 +169,7 @@ final class HistoryStore: ObservableObject {
         }
         do {
             let data = try Storage.encoder.encode(transcripts)
-            try data.write(to: Storage.historyURL, options: .atomic)
+            try Storage.writePrivately(data, to: Storage.historyURL)
         } catch {
             Log.app.error("history save failed: \(error.localizedDescription, privacy: .public)")
         }

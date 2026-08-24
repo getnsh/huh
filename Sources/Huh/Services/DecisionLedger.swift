@@ -43,6 +43,13 @@ final class DecisionLedger: ObservableObject {
 
     @Published private(set) var records: [String: LearningRecord] = [:]
 
+    /// Set when `decisions.json` exists but could not be parsed. While it is
+    /// set, nothing is written. Without this the ledger answers "never seen"
+    /// for every token after a single damaged byte, and the first write
+    /// replaces a full history of answered questions with one entry -- so
+    /// every suggestion the user has ever dismissed comes back, for good.
+    @Published private(set) var loadError: String?
+
     private init() {
         load()
         migrateLegacyDismissals()
@@ -101,19 +108,32 @@ final class DecisionLedger: ObservableObject {
     // MARK: - Disk
 
     private func load() {
-        guard let data = try? Data(contentsOf: Storage.decisionsURL) else { return }
+        guard let data = try? Data(contentsOf: Storage.decisionsURL) else {
+            loadError = nil
+            return
+        }
         do {
             let list = try Storage.decoder.decode([LearningRecord].self, from: data)
             records = Dictionary(list.map { ($0.token, $0) }, uniquingKeysWith: { _, later in later })
+            loadError = nil
         } catch {
+            loadError = "decisions.json couldn't be read: \(error.localizedDescription)"
             Log.app.error("decision ledger load failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     private func save() {
+        // A file that could not be parsed is never written over. It may be
+        // mid-edit by hand, or damaged in a way the user can still repair --
+        // and overwriting it with what little loaded turns a recoverable
+        // problem into a permanent one.
+        guard loadError == nil else {
+            Log.app.error("decision ledger save suppressed: the store did not load cleanly")
+            return
+        }
         do {
             let list = records.values.sorted { $0.token < $1.token }
-            try Storage.encoder.encode(list).write(to: Storage.decisionsURL, options: .atomic)
+            try Storage.writePrivately(Storage.encoder.encode(list), to: Storage.decisionsURL)
         } catch {
             Log.app.error("decision ledger save failed: \(error.localizedDescription, privacy: .public)")
         }
