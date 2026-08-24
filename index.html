@@ -86,6 +86,8 @@ h2 .q{color:var(--live)}
 .lede{font-size:clamp(16.5px,1.9vw,21px);color:var(--t2);max-width:52ch;margin:0}
 p.body{color:var(--t2);max-width:56ch;margin:0 0 18px;font-size:16.5px}
 p.body strong{color:var(--t1);font-weight:500}
+p.body code{font-family:var(--mono);font-size:13px;color:var(--t1);
+  background:var(--raised);border:1px solid var(--soft);border-radius:5px;padding:1px 6px}
 .big{font-size:clamp(22px,3.4vw,38px);line-height:1.3;color:var(--t1);
   letter-spacing:-.02em;max-width:20ch;font-weight:500}
 
@@ -315,6 +317,117 @@ footer,#transcribe{position:relative;z-index:1}
 .card .go i{font-style:normal;transition:transform .3s var(--spring);display:inline-block}
 .card:hover .go i{transform:translateX(5px)}
 
+/* ── The demo stage ──────────────────────────────────────── */
+/* A rebuild of the application's own overlay, to the numbers in
+   HUDController.swift and Components.swift: 28 capsules 3px wide
+   with 2.5px between them, 24px at full deflection, a pill 310
+   across that opens to 580, and a confirmation that holds for the
+   1.4s the app holds it. Everything is laid out at a fixed design
+   width and scaled to fit, so the geometry stays exact on a phone
+   rather than being approximated by a stack of percentages. */
+.stage-wrap{margin-top:clamp(28px,5vw,48px);position:relative}
+.stage-wrap::before{content:"";position:absolute;inset:-8% -2%;z-index:0;
+  pointer-events:none;border-radius:50%;
+  background:radial-gradient(58% 52% at 50% 46%,rgba(10,10,10,.92),rgba(10,10,10,0) 70%)}
+.stage-fit{z-index:1}
+.stage{--dw:720;--dh:300;width:calc(var(--dw)*1px);height:calc(var(--dh)*1px);
+  transform-origin:top left;position:relative;font-family:var(--sans)}
+.stage-fit{position:relative;overflow:hidden}
+
+.win{position:absolute;left:76px;top:46px;width:568px;
+  background:var(--base);border:1px solid var(--border);border-radius:11px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);overflow:hidden}
+.win-bar{height:34px;background:var(--surface);border-bottom:1px solid var(--soft);
+  display:flex;align-items:center;gap:7px;padding:0 13px;position:relative}
+.win-bar i{width:11px;height:11px;border-radius:50%;display:block;flex:none}
+.win-bar i:nth-child(1){background:#3B3B3B}
+.win-bar i:nth-child(2){background:#333}
+.win-bar i:nth-child(3){background:#2C2C2C}
+.win-bar span{position:absolute;left:0;right:0;text-align:center;
+  font-size:12px;color:var(--t3);pointer-events:none}
+.win-body{padding:20px 22px;min-height:84px;font-size:15px;line-height:1.62;
+  color:var(--t1)}
+.win-body .ins{color:var(--live);transition:color 1.1s var(--quick)}
+.win-body .ins.settled{color:var(--t1)}
+.caret{display:inline-block;width:1.5px;height:1.05em;background:var(--live);
+  vertical-align:-.18em;margin-left:1px;animation:blink 1.06s steps(1) infinite}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+.keychip{position:absolute;left:76px;top:0;display:inline-flex;align-items:center;
+  gap:8px;font-family:var(--mono);font-size:11px;color:var(--t3);
+  border:1px solid var(--border);border-radius:8px;padding:6px 10px;
+  background:var(--surface);transition:all .12s var(--quick)}
+.keychip b{font-weight:400;color:var(--t2)}
+.keychip.held{border-color:var(--live);color:var(--live);
+  background:rgba(158,123,255,.10);box-shadow:0 0 0 4px rgba(158,123,255,.07)}
+.keychip.held b{color:var(--live)}
+
+/* The pill. Radius 22 is Theme.radiusPanel + 6. */
+.hud{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+  width:310px;padding:14px 20px;border-radius:22px;
+  background:#141414;border:1px solid #2E2E2E;
+  box-shadow:0 14px 34px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;
+  transition:width .34s var(--spring),padding .34s var(--spring),
+             opacity .18s var(--quick),border-color .14s var(--quick),
+             box-shadow .14s var(--quick)}
+.hud.on{opacity:1}
+.hud.listening{border-color:rgba(158,123,255,.5);
+  box-shadow:0 14px 34px rgba(0,0,0,.6),0 0 24px rgba(158,123,255,.2)}
+.hud.done{border-color:rgba(158,123,255,.55)}
+.hud.wide{width:580px;padding:18px 20px}
+.hud-head{display:flex;align-items:center;gap:14px;min-height:26px}
+.bars{display:flex;align-items:center;gap:2.5px;height:26px;flex:none;width:151.5px}
+.bars i{width:3px;border-radius:1.5px;background:var(--live);display:block;
+  height:3px;flex:none}
+.hud-cap{font-size:12.5px;font-weight:500;color:var(--t2);white-space:nowrap}
+.hud.listening .hud-cap{color:var(--live)}
+.hud-done-row{display:none;align-items:center;gap:10px}
+.hud.done .hud-done-row{display:flex}
+.hud.done .hud-head{display:none}
+.hud-done-row svg{width:13px;height:13px;flex:none;color:var(--live)}
+.hud-done-row span{font-size:13px;font-weight:500;color:var(--t1)}
+.hud-partial{font-size:18px;line-height:1.42;color:var(--t1);
+  max-height:0;opacity:0;overflow:hidden;
+  transition:max-height .26s var(--spring),opacity .1s var(--quick),
+             margin-top .26s var(--spring)}
+.hud.wide .hud-partial{max-height:120px;opacity:1;margin-top:14px}
+
+.stage-note{font-family:var(--mono);font-size:11.5px;line-height:1.8;
+  color:var(--t3);max-width:70ch;margin:clamp(20px,3vw,30px) 0 0}
+@media(max-width:700px){
+  .stage{--dw:400;--dh:326}
+  .win{left:10px;width:380px}
+  .keychip{left:10px}
+  .hud{width:250px}
+  .hud.wide{width:380px}
+  .win-body{min-height:96px}
+}
+@media(prefers-reduced-motion:reduce){.caret{animation:none}}
+
+/* ── Findings ────────────────────────────────────────────── */
+.finds{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--soft);
+  border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:40px}
+@media(max-width:760px){.finds{grid-template-columns:1fr}}
+.find{background:var(--base);padding:24px 22px;display:flex;flex-direction:column}
+.find .n{font-size:clamp(28px,3.6vw,40px);font-weight:600;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;line-height:1;margin-bottom:12px;color:var(--live)}
+.find .t{font-size:14px;color:var(--t2);line-height:1.6;flex:1}
+.find .t b{color:var(--t1);font-weight:500}
+.find .src{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--t3);
+  text-decoration:none;border-bottom:1px solid transparent;align-self:flex-start}
+.find .src:hover{color:var(--live);border-bottom-color:rgba(158,123,255,.4)}
+
+.checks{list-style:none;padding:0;margin:34px 0 0;display:grid;gap:1px;
+  background:var(--soft);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.checks li{background:var(--base);padding:16px 20px;display:flex;gap:14px;
+  align-items:flex-start;font-size:14.5px;line-height:1.6;color:var(--t2)}
+.checks li b{color:var(--t1);font-weight:500}
+.checks li code{font-family:var(--mono);font-size:12.5px;color:var(--t1);
+  background:var(--raised);border:1px solid var(--soft);border-radius:5px;padding:1px 6px}
+.checks li i{font-style:normal;color:var(--live);flex:none;font-size:13px;
+  line-height:1.75;font-family:var(--mono)}
+
 /* ── Dock ────────────────────────────────────────────────── */
 /* A floating island rather than a bar welded to the bottom:
    the plate runs behind and around it, and the page stops
@@ -372,12 +485,56 @@ footer{padding:64px 0 40px}
     <div class="hero-copy">
       <p class="lede">
         Hold a key. Talk. The words land wherever your cursor is. Transcribed by
-        the machine on your desk — not by a machine in someone else's building.
+        the machine on your desk — not by a machine in someone else's building,
+        and never onto a disk that someone else can lose.
       </p>
       <div class="row-cta">
         <a class="btn b1 mag" href="https://github.com/getnsh/huh/releases">Download</a>
         <a class="btn b2 mag" href="https://github.com/getnsh/huh">Source</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ WHAT IT ACTUALLY DOES ═══ -->
+<section class="scene">
+  <div class="wrap">
+    <p class="tc rise"><b>00:01</b><span></span>what it actually does</p>
+    <h2 class="rise" style="max-width:13ch">This is the <span class="q">whole</span> thing.</h2>
+    <p class="body rise" style="max-width:58ch">Hold the key, say the sentence, let go. Watch the
+      overlay: the recogniser hears <em>cuber netties</em>, because that is what it sounds like.
+      The dictionary knows what you meant. What lands in the document is already right — you never
+      see the wrong version, and you never go back to fix it.</p>
+
+    <div class="stage-wrap rise">
+      <div class="stage-fit" id="stageFit">
+        <div class="stage" id="stage" aria-hidden="true">
+
+          <div class="win">
+            <div class="win-bar"><i></i><i></i><i></i><span>Untitled — TextEdit</span></div>
+            <div class="win-body"><span id="docText"></span><span class="caret"></span></div>
+          </div>
+
+          <div class="keychip" id="keyChip">⌥&nbsp; <b>right option</b></div>
+
+          <div class="hud" id="hud">
+            <div class="hud-head">
+              <div class="bars" id="bars"></div>
+              <span class="hud-cap" id="hudCap">Listening</span>
+            </div>
+            <div class="hud-done-row">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.9 5.7-4.6 5.1a.8.8 0 0 1-1.2 0L4 8.6a.8.8 0 1 1 1.2-1l1.5 1.7 4-4.5a.8.8 0 1 1 1.2 1Z"/></svg>
+              <span id="hudDone">Inserted into TextEdit</span>
+            </div>
+            <div class="hud-partial" id="hudPartial"></div>
+          </div>
+
+        </div>
+      </div>
+      <p class="stage-note">A rebuild of the overlay in the browser, drawn to the same numbers as
+        the application and running at the same timings — not a screen recording. The window is
+        TextEdit because the point is that it could be anything: the text goes wherever the cursor
+        already is, in Slack, in Mail, in a terminal.</p>
     </div>
   </div>
 </section>
@@ -471,10 +628,92 @@ footer{padding:64px 0 40px}
   </div>
 </section>
 
+<!-- ═══ THE SECURITY CASE ═══ -->
+<section class="scene">
+  <div class="wrap">
+    <p class="tc rise"><b>01:20</b><span></span>the security case</p>
+    <h2 class="rise" style="max-width:17ch">The safest recording is the one that was
+      <span class="q">never made</span>.</h2>
+    <p class="body rise" style="max-width:60ch">A cloud dictation service is, structurally, a
+      company holding your voice. Not because anyone there is careless — because that is what the
+      architecture requires. Audio has to reach a server to be transcribed, and once it is there it
+      is on a disk, in a backup, in a subprocessor's region, and subject to whatever the terms say
+      next year. Every one of those is a place it can leak from. None of them exist here.</p>
+
+    <div class="finds rise">
+      <div class="find">
+        <div class="n">48%</div>
+        <p class="t">of breaches now involve a <b>third party</b> — a 60% rise in one year, and the
+          first time supply chain has been the story rather than a footnote. A transcription vendor
+          is a third party.</p>
+        <a class="src" href="https://www.verizon.com/about/news/breach-industry-wide-dbir-finds"
+           target="_blank" rel="noopener">Verizon DBIR 2026 →</a>
+      </div>
+      <div class="find">
+        <div class="n">$4.99M</div>
+        <p class="t">average cost of a breach in 2026. The one in four that were <b>AI-enabled</b>
+          averaged six million, and grew 56% year on year.</p>
+        <a class="src" href="https://newsroom.ibm.com/2026-07-29-ibm-study-one-in-four-malicious-breaches-are-ai-enabled,-costing-companies-6-million-on-average"
+           target="_blank" rel="noopener">IBM Cost of a Data Breach 2026 →</a>
+      </div>
+      <div class="find">
+        <div class="n">1,000,000,000</div>
+        <p class="t">meetings processed by a single note-taking service since 2016, across roughly
+          25 million users. A 2025 class action alleges it <b>recorded participants who never
+          agreed to it</b> and used the audio to train its models. The claims are untested.</p>
+        <a class="src" href="https://www.npr.org/2025/08/15/g-s1-83087/otter-ai-transcription-class-action-lawsuit"
+           target="_blank" rel="noopener">NPR, August 2025 →</a>
+      </div>
+      <div class="find">
+        <div class="n">3 seconds</div>
+        <p class="t">of clean recorded speech is enough to clone a voice convincingly. A meeting
+          archive is not just a record of what was said — it is <b>a corpus of everyone who was in
+          the room</b>.</p>
+        <a class="src" href="https://www.microsoft.com/en-us/research/project/vall-e-x/"
+           target="_blank" rel="noopener">Microsoft Research, VALL-E →</a>
+      </div>
+    </div>
+
+    <p class="body rise" style="max-width:60ch;margin-top:38px">Even Apple got this wrong. Siri
+      recordings were reviewed by human contractors; Apple settled for $95&nbsp;million in 2025,
+      covering devices sold over a decade, without admitting wrongdoing. That is the relevant
+      lesson, and it is why this app binds to <code>SystemLanguageModel</code> and never to
+      <code>PrivateCloudComputeLanguageModel</code> — the one that would send your words to Apple's
+      servers. The guarantee is in the type it is compiled against, not in a setting somebody can
+      change later.</p>
+
+    <h3 class="rise" style="font-size:clamp(19px,2.4vw,26px);font-weight:600;letter-spacing:-.02em;
+      margin:clamp(46px,6vw,68px) 0 0">Which you do not have to take my word for.</h3>
+    <p class="body rise" style="max-width:60ch;margin-top:12px">That is the point of publishing the
+      source. Every line below is something you can check in an afternoon, and the reason it is
+      worth checking is that a claim nobody can verify is just advertising.</p>
+
+    <ul class="checks rise">
+      <li><i>&check;</i><span>There is no <code>URLSession</code>, no socket and no subprocess
+        anywhere in the source. <b>The application cannot make a network request</b>, because there
+        is no code in it that makes one.</span></li>
+      <li><i>&check;</i><span><b>One entitlement: the microphone.</b> That is the entire list.</span></li>
+      <li><i>&check;</i><span><b>Audio is never written to disk.</b> It exists in memory for the
+        length of an utterance and is discarded when the utterance ends.</span></li>
+      <li><i>&check;</i><span>The hotkey monitor asks for modifier keys only, and listen-only. It is
+        <b>structurally incapable of seeing what you type</b> — not configured not to, unable
+        to.</span></li>
+      <li><i>&check;</i><span><b>Dictation is refused when a password field has focus</b>, or when
+        another application has engaged secure input. It does not fall back to the clipboard.</span></li>
+      <li><i>&check;</i><span>What briefly reaches your clipboard is <b>confined to this machine</b>
+        and marked so clipboard managers do not record it — it is not carried to your phone.</span></li>
+      <li><i>&check;</i><span>Transcripts are plain JSON in a folder you can open, readable only by
+        you, and <b>deleting them deletes them</b> — including the salvage copy.</span></li>
+      <li><i>&check;</i><span>The optional models are <b>pinned to exact revisions</b>, so the
+        weights that read your meetings cannot be swapped upstream.</span></li>
+    </ul>
+  </div>
+</section>
+
 <!-- ═══ THE SWITCH ═══ -->
 <section class="scene">
   <div class="wrap">
-    <p class="tc rise"><b>01:12</b><span></span>what it heard, what it writes</p>
+    <p class="tc rise"><b>02:35</b><span></span>what it heard, what it writes</p>
     <h2 class="rise offset" style="max-width:15ch">Every recogniser <span class="q">mishears</span>.</h2>
     <p class="body rise offset">Flip the switch. One side is what a recogniser hands
       you; the other is what huh? writes instead.</p>
@@ -516,7 +755,7 @@ footer{padding:64px 0 40px}
 <!-- ═══ MEETINGS + NAMES ═══ -->
 <section class="scene">
   <div class="narrow">
-    <p class="tc rise"><b>02:07</b><span></span>recordings and names</p>
+    <p class="tc rise"><b>03:50</b><span></span>recordings and names</p>
     <h2 class="rise">An hour of audio.<br>Ninety seconds of waiting.</h2>
     <p class="body rise">
       Drop in a file — roughly forty times realtime on Apple silicon. Back come
@@ -540,7 +779,7 @@ footer{padding:64px 0 40px}
 <!-- ═══ UNDER THE HOOD ═══ -->
 <section class="scene">
   <div class="wrap">
-    <p class="tc rise"><b>04:26</b><span></span>under the hood</p>
+    <p class="tc rise"><b>05:30</b><span></span>under the hood</p>
     <h2 class="rise">How it actually works.</h2>
     <p class="body rise">
       Audio never touches the disk. The dictionary enters the pipeline twice, at
@@ -600,7 +839,7 @@ footer{padding:64px 0 40px}
 <!-- ═══ PRIVACY ═══ -->
 <section class="scene">
   <div class="wrap">
-    <p class="tc rise"><b>06:40</b><span></span>where your words go</p>
+    <p class="tc rise"><b>07:10</b><span></span>where your words go</p>
     <h2 class="rise">Everywhere they can<br>possibly end up.</h2>
     <p class="body rise">Most apps say "private" and stop. This is the entire
       list — including the one path that leaves, which happens only because you
@@ -649,6 +888,8 @@ footer{padding:64px 0 40px}
     <h2 class="rise">Say hello.</h2>
     <p class="body rise">Bugs, questions, or permission to fork it into something
       of your own — all of it reaches the same inbox.</p>
+    <p class="body rise" style="max-width:56ch"><strong>There is one person here.</strong> No team,
+      no support desk, no ticket number. A reply might take a day or two, and it will be from me.</p>
     <div class="cards">
       <a class="card tilt rise" href="https://github.com/getnsh" target="_blank" rel="noopener">
         <span class="glow"></span>
@@ -755,6 +996,10 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
      The plate starts at full detail and steps down if this
      particular device cannot keep up with it. */
   var QUAL=1, budget=FINE?0:32, hist=[], lastT=0, SMALL=false, MSC=1;
+  /* Two ceilings, both empirical: the frame budget is spent on
+     pushing the buffer to the screen and on scattered writes into
+     it, and these are where 60fps stops being comfortable. */
+  var PIXEL_CAP=4200000, GRAIN_CAP=44000;
 
   /* Ascending modes: the page opens on a simple figure and
      grows more intricate the further in you read. */
@@ -770,7 +1015,7 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
       var r=Math.round(104+(168-104)*k), gg=Math.round(104+(134-104)*k), b=Math.round(112+(255-112)*k);
       var a=Math.round(26+229*k*k);
       LUT[i]=(a<<24)|(b<<16)|(gg<<8)|r;
-      HALO[i]=(((a*0.30)|0)<<24)|(b<<16)|(gg<<8)|r;
+      HALO[i]=(((a*0.38)|0)<<24)|(b<<16)|(gg<<8)|r;
     }
   })();
 
@@ -782,11 +1027,20 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
        the compositor does with this layer every frame — which
        matters far more on a phone than a crisp dot does. */
     SMALL=W<700;
-    /* A phone has few enough pixels to draw grains at native
-       device resolution, which keeps them fine rather than
-       chunky; a large desktop viewport renders slightly under
-       CSS resolution so the upscale softens each grain. */
-    S=SMALL?Math.min(window.devicePixelRatio||1,2):(W*H>1600000?0.72:0.9);
+    /* Never below the display's own resolution.
+       Rendering under it and letting the browser scale the canvas
+       up is what turned a crisp grain into a smear: a 1.4x bilinear
+       upscale spreads every one-pixel dot across two, and a field
+       made entirely of one-pixel dots becomes mush. Phones never had
+       the problem because they were already drawn at device pixels.
+       The cap is on total buffer pixels rather than on the ratio, so
+       a 5K panel asks for a large frame rather than an impossible
+       one, and the shortfall is taken as softness only when there is
+       genuinely no other choice. */
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    S=dpr;
+    if(W*H*S*S>PIXEL_CAP)S=Math.sqrt(PIXEL_CAP/(W*H));
+    if(S<0.75)S=0.75;
     /* A phone screen is small enough that the full mode numbers
        pack the nodal lines too close to read as lines at all, so
        the figure is coarsened to suit the canvas it is drawn on. */
@@ -802,7 +1056,11 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
     /* The ImageData views the same memory, so there is no copy
        between writing a grain and putting the frame up. */
     img=new ImageData(new Uint8ClampedArray(buf),PW,PH);
-    var want=Math.round((SMALL?13000:(W*H>2000000?19000:14000))*QUAL);
+    /* Grains are counted per buffer pixel, not per screen. A sharper
+       canvas has more pixels to fill, and holding the count constant
+       would just thin the sand out until the figure faded. */
+    var want=Math.round(PW*PH*(SMALL?0.0072:0.0160)*QUAL);
+    if(want>GRAIN_CAP)want=GRAIN_CAP;
     if(COUNT!==want||!xs){
       COUNT=want;xs=new Float32Array(COUNT);ys=new Float32Array(COUNT);
       for(var i=0;i<COUNT;i++){xs[i]=Math.random();ys[i]=Math.random();}
@@ -1379,6 +1637,162 @@ if(FINE&&!REDUCE){
     requestAnimationFrame(lean);
   })();
 }
+/* ═══ 11. THE DEMO STAGE ═══
+   The application's own dictation cycle, rebuilt. The sequence is
+   the real one, in the real order: the overlay appears on key-down,
+   fills with what the recogniser actually heard, and the corrected
+   text only exists at the moment it is inserted. The gap between
+   those two -- "cuber netties" in the overlay, "Kubernetes" in the
+   document -- is the product, so it is the thing the eye lands on.
+   Confirmation holds 1.4s because that is what DictationController
+   holds it for. */
+(function demo(){
+  var stage=document.getElementById('stage');if(!stage)return;
+  var fit=document.getElementById('stageFit'),
+      hud=document.getElementById('hud'),
+      cap=document.getElementById('hudCap'),
+      partial=document.getElementById('hudPartial'),
+      doc=document.getElementById('docText'),
+      chip=document.getElementById('keyChip'),
+      barBox=document.getElementById('bars');
+
+  var N=28, bars=[], level=new Float32Array(N);
+  for(var i=0;i<N;i++){
+    var b=document.createElement('i');
+    /* Newest sample on the right and brightest, as LevelBars draws it. */
+    b.style.opacity=(0.35+0.65*(i/(N-1))).toFixed(3);
+    barBox.appendChild(b);bars.push(b);
+  }
+
+  /* The design is laid out at 720px and scaled, so a phone gets the
+     real geometry shrunk rather than a different layout guessed. */
+  function fitStage(){
+    var cs=getComputedStyle(stage);
+    var dw=parseFloat(cs.getPropertyValue('--dw'))||720;
+    var dh=parseFloat(cs.getPropertyValue('--dh'))||300;
+    var s=Math.min(1,fit.clientWidth/dw);
+    stage.style.transform='scale('+s+')';
+    fit.style.height=(dh*s)+'px';
+    /* Centred once it stops needing to shrink, so it does not sit
+       against the left edge of a wide container. */
+    stage.style.marginLeft=Math.max(0,(fit.clientWidth-dw*s)/2)+'px';
+  }
+  fitStage();
+  new ResizeObserver(fitStage).observe(fit);
+
+  var RAW=['ship','the','cuber','netties','config','to','versel','before','thursday'];
+  var FINAL='Ship the <span class="ins">Kubernetes</span> config to '+
+            '<span class="ins">Vercel</span> before Thursday.';
+
+  /* ms into the cycle */
+  /* Real timings. The 1.4s the confirmation holds is the 1.4s
+     DictationController holds it; the rest is the pace of somebody
+     saying one sentence without hurrying. */
+  var KEY_DOWN=500, LISTEN=800, SPEAK=1150, SPEAK_END=4200,
+      KEY_UP=4400, INSERT=5150, CONFIRM_END=6550, RESET=7400, LOOP=7400;
+
+  var t0=null, raf=0, running=false, shown='';
+
+  function setBars(v){
+    for(var i=0;i<N-1;i++)level[i]=level[i+1];
+    level[N-1]=v;
+    for(var j=0;j<N;j++){
+      /* height(for:phase:) from Components.swift, verbatim. */
+      var shaped=Math.pow(Math.min(1,level[j]),0.65);
+      var breath=2.2*(0.5+0.5*Math.sin(performance.now()/1000*3.1+j*0.42));
+      bars[j].style.height=(3+breath+shaped*21).toFixed(2)+'px';
+    }
+  }
+
+  /* A speech envelope: loud on syllables, dipping between words, so the
+     meter reads as somebody talking rather than as a busy indicator. */
+  function envelope(ms){
+    if(ms<SPEAK||ms>KEY_UP)return 0;
+    var p=(ms-SPEAK)/1000;
+    var syllable=0.55+0.45*Math.sin(p*15.5);
+    var word=0.45+0.55*Math.abs(Math.sin(p*3.4));
+    var v=syllable*word*0.92;
+    return v<0?0:(v>1?1:v);
+  }
+
+  /* Everything below is derived from the clock rather than triggered at
+     an edge. A frame dropped on a boundary then costs one frame, not a
+     stage stuck in the previous cycle's state. */
+  function render(ms){
+    var held   = ms>=KEY_DOWN && ms<KEY_UP;
+    var open   = ms>=KEY_DOWN && ms<CONFIRM_END;
+    var wide   = ms>=SPEAK    && ms<INSERT;
+    var done   = ms>=INSERT   && ms<CONFIRM_END;
+    var typed  = ms>=INSERT   && ms<RESET;
+
+    chip.classList.toggle('held',held);
+    hud.classList.toggle('on',open);
+    hud.classList.toggle('listening',held);
+    hud.classList.toggle('wide',wide);
+    hud.classList.toggle('done',done);
+
+    /* Blank while the partial is showing, as the app does: once there
+       are words on screen the caption is repeating itself. */
+    cap.textContent = ms<LISTEN ? 'Starting…'
+                    : held      ? (wide ? '' : 'Listening')
+                    :             'Transcribing…';
+
+    var want = wide
+      ? RAW.slice(0,Math.min(RAW.length,
+          Math.floor((ms-SPEAK)/((SPEAK_END-SPEAK)/RAW.length))+1)).join(' ')
+      : (ms<SPEAK ? '' : partial.textContent);
+    if(want!==partial.textContent)partial.textContent=want;
+
+    var doctext = typed ? FINAL : '';
+    if(doctext!==shown){
+      shown=doctext;
+      doc.innerHTML=doctext;
+      if(doctext){
+        /* The corrected words arrive lit, then settle, so the eye is
+           told where to look without the page shouting about it. */
+        setTimeout(function(){
+          [].forEach.call(doc.querySelectorAll('.ins'),function(e){
+            e.classList.add('settled');
+          });
+        },900);
+      }
+    }
+  }
+
+  function frame(now){
+    if(!running){raf=0;return}
+    raf=requestAnimationFrame(frame);
+    if(t0===null)t0=now;
+    var ms=(now-t0)%LOOP;
+    setBars(envelope(ms));
+    render(ms);
+  }
+
+  function reset(){
+    hud.className='hud';doc.innerHTML='';partial.textContent='';
+    cap.textContent='Listening';chip.classList.remove('held');
+    shown='';
+    for(var i=0;i<N;i++){level[i]=0;bars[i].style.height='3px';}
+  }
+
+  function still(){
+    /* Reduced motion gets the outcome, not the performance. */
+    reset();
+    doc.innerHTML=FINAL;
+    [].forEach.call(doc.querySelectorAll('.ins'),function(e){e.classList.add('settled')});
+    hud.classList.add('on','done');
+    for(var i=0;i<N;i++)bars[i].style.height=(3+2*Math.abs(Math.sin(i*0.7))).toFixed(1)+'px';
+  }
+
+  if(REDUCE){still();return}
+
+  reset();
+  new IntersectionObserver(function(e){
+    var vis=e[0].isIntersecting;
+    if(vis&&!running){running=true;t0=null;if(!raf)raf=requestAnimationFrame(frame)}
+    else if(!vis&&running){running=false;}
+  },{threshold:0.25}).observe(stage);
+})();
 })();
 </script>
 </body>
