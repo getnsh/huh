@@ -173,7 +173,7 @@ h1,h2,.lede,.big,p.body,.tc,.hint,.plate-note,.tr-line p,.foot,.pun .say,.pun .d
 @media(max-width:860px){.hero-copy{grid-template-columns:1fr;gap:24px}}
 
 /* ── Scenes ──────────────────────────────────────────────── */
-.scene{padding:clamp(74px,9vw,122px) 0;position:relative;z-index:1}
+.scene{padding:clamp(74px,9vw,122px) 0;position:relative;z-index:1;scroll-margin-top:56px}
 footer,#transcribe{position:relative;z-index:1}
 .offset{margin-left:0}
 @media(max-width:860px){.offset{margin-left:0}}
@@ -566,6 +566,41 @@ footer,#transcribe{position:relative;z-index:1}
   .qctx{white-space:normal;font-size:10.5px}
 }
 
+/* ── The legend ──────────────────────────────────────────── */
+/* A chapter index for a page that reads as a recording. It stays out
+   of the way over the hero and slides in once you are past it, and it
+   writes itself in the first time you see it — mishearing one of its
+   own entries and correcting it, which is the entire product in one
+   gesture and costs nothing to watch. */
+.legend{position:fixed;top:0;left:0;right:0;z-index:120;
+  display:flex;align-items:center;gap:18px;height:44px;
+  padding-inline:max(18px,calc((100vw - 1160px)/2));
+  background:#0D0D0D;border-bottom:1px solid var(--border);
+  transform:translateY(-100%);transition:transform .42s var(--spring);
+  will-change:transform}
+.legend.on{transform:none}
+.lg-mark{font-size:16px;font-weight:600;letter-spacing:-.045em;color:var(--t1);
+  text-decoration:none;flex:none}
+.lg-mark span{color:var(--live)}
+.lg-bars{display:flex;align-items:center;gap:2px;height:14px;flex:none;opacity:0;
+  transition:opacity .3s var(--quick)}
+.lg-bars.on{opacity:1}
+.lg-bars i{width:2px;height:2px;border-radius:1px;background:var(--live);display:block}
+.lg-list{display:flex;align-items:center;gap:2px;list-style:none;margin:0;padding:0;
+  min-width:0;overflow:hidden}
+.lg-list a{display:flex;align-items:baseline;gap:7px;text-decoration:none;
+  padding:5px 9px;border-radius:7px;white-space:nowrap;
+  transition:background .16s var(--quick)}
+.lg-list a:hover{background:var(--hover)}
+.lg-list b{font-family:var(--mono);font-size:10px;font-weight:400;color:var(--t3);
+  font-variant-numeric:tabular-nums;transition:color .2s var(--quick)}
+.lg-list span{font-size:12px;color:var(--t2);transition:color .2s var(--quick)}
+.lg-list .now b,.lg-list .now span{color:var(--live)}
+.lg-list .w{color:var(--bad)}
+.lg-list .f{color:var(--live)}
+@media(max-width:900px){.legend{display:none}}
+@media(prefers-reduced-motion:reduce){.legend{transition:none}}
+
 /* ── Dock ────────────────────────────────────────────────── */
 /* A floating island rather than a bar welded to the bottom:
    the plate runs behind and around it, and the page stops
@@ -602,6 +637,20 @@ footer{padding:64px 0 40px}
 </style>
 </head>
 <body>
+
+<nav class="legend" id="legend" aria-label="Sections">
+  <a class="lg-mark" href="#hero">huh<span>?</span></a>
+  <div class="lg-bars" id="lgBars" aria-hidden="true"></div>
+  <ul class="lg-list" id="lgList">
+    <li><a href="#s-does"><b>00:01</b><span data-t="what it does"></span></a></li>
+    <li><a href="#s-why"><b>00:38</b><span data-t="why it exists"></span></a></li>
+    <li><a href="#s-security"><b>01:20</b><span data-t="security"></span></a></li>
+    <li><a href="#s-dictionary"><b>02:35</b><span data-t="what it heard, what it writes" data-wrong="what it herd, what it rights"></span></a></li>
+    <li><a href="#s-model"><b>04:10</b><span data-t="long meetings"></span></a></li>
+    <li><a href="#s-how"><b>05:44</b><span data-t="under the hood"></span></a></li>
+    <li><a href="#s-install"><b>08:02</b><span data-t="install"></span></a></li>
+  </ul>
+</nav>
 
 <canvas id="plate" aria-hidden="true"></canvas>
 
@@ -643,7 +692,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ WHAT IT ACTUALLY DOES ═══ -->
-<section class="scene">
+<section class="scene" id="s-does">
   <div class="wrap">
     <p class="tc rise"><b>00:01</b><span></span>what it actually does</p>
     <h2 class="rise" style="max-width:13ch">This is the <span class="q">whole</span> thing.</h2>
@@ -706,7 +755,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ THE ARGUMENT ═══ -->
-<section class="scene">
+<section class="scene" id="s-why">
   <div class="wrap">
     <p class="tc rise"><b>00:38</b><span></span>why this exists</p>
     <h2 class="rise" style="max-width:15ch">The hardware is already <span class="q">yours</span>.</h2>
@@ -775,7 +824,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ THE SECURITY CASE ═══ -->
-<section class="scene">
+<section class="scene" id="s-security">
   <div class="wrap">
     <p class="tc rise"><b>01:20</b><span></span>the security case</p>
     <h2 class="rise" style="max-width:17ch">The safest recording is the one that was
@@ -857,7 +906,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ THE SWITCH ═══ -->
-<section class="scene">
+<section class="scene" id="s-dictionary">
   <div class="wrap">
     <p class="tc rise"><b>02:35</b><span></span>what it heard, what it writes</p>
     <h2 class="rise offset" style="max-width:15ch">Every recogniser <span class="q">mishears</span>.</h2>
@@ -956,7 +1005,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ THE LONG MEETING ═══ -->
-<section class="scene">
+<section class="scene" id="s-model">
   <div class="wrap">
     <p class="tc rise"><b>04:10</b><span></span>when the meeting is too long</p>
     <h2 class="rise" style="max-width:15ch">A bigger model, <span class="q">still</span> on your Mac.</h2>
@@ -1059,7 +1108,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ UNDER THE HOOD ═══ -->
-<section class="scene">
+<section class="scene" id="s-how">
   <div class="wrap">
     <p class="tc rise"><b>05:44</b><span></span>under the hood</p>
     <h2 class="rise">How it actually works.</h2>
@@ -1137,7 +1186,7 @@ footer{padding:64px 0 40px}
 </section>
 
 <!-- ═══ INSTALL ═══ -->
-<section class="scene">
+<section class="scene" id="s-install">
   <div class="narrow">
     <p class="tc rise"><b>08:02</b><span></span>install</p>
     <h2 class="rise">Three lines.</h2>
@@ -1230,6 +1279,8 @@ var DPR=function(){return Math.min(window.devicePixelRatio||1,2.5)};
 /* One pointer source for the whole page. Touch feeds the same
    state, so every effect works on a phone without a second path. */
 var P={x:innerWidth/2,y:innerHeight/2,v:0,has:false,down:false,moved:false};
+/* Set by the legend; called by the dock when the current section changes. */
+var onBeat=null;
 /* When the microphone is on, the field is driven by what it hears
    instead of where the pointer is. The audio is analysed in this
    tab and thrown away frame by frame — nothing is recorded, stored
@@ -1981,6 +2032,7 @@ if(FINE&&!REDUCE){
       var mid=scrollY+innerHeight*0.42,cur=null;
       beats.forEach(function(b){if(b.el&&b.el.offsetTop<=mid)cur=b});
       if(cur&&clock.textContent!==cur.time){clock.textContent=cur.time;where.textContent=cur.label}
+      if(onBeat)onBeat(cur);
     });
   }
   addEventListener('scroll',onScroll,{passive:true});
@@ -2325,6 +2377,94 @@ if(FINE&&!REDUCE){
     if(e[0].isIntersecting){ if(!run){run=true;t0=null;lastN=-1;if(!raf)raf=requestAnimationFrame(frame);} }
     else run=false;
   },{threshold:0.25}).observe(card);
+})();
+/* ═══ 14. THE LEGEND ═══
+   A chapter index that writes itself in, once, the first time the page
+   scrolls past the hero. Each entry is dictated rather than printed,
+   and one of them is misheard on the way — the nav gets "what it herd,
+   what it rights" and then corrects itself, which is the product
+   demonstrating itself on the way to being useful. After that it is a
+   plain index: click to jump, current chapter lit. */
+(function legend(){
+  var nav=document.getElementById('legend');if(!nav)return;
+  var list=document.getElementById('lgList'), barBox=document.getElementById('lgBars');
+  var spans=[].slice.call(list.querySelectorAll('span[data-t]'));
+  var links=[].slice.call(list.querySelectorAll('a'));
+
+  var bars=[];
+  for(var i=0;i<7;i++){var b=document.createElement('i');barBox.appendChild(b);bars.push(b);}
+
+  /* The dock already works out which section is current on every
+     scroll; this borrows that answer rather than watching separately. */
+  onBeat=function(cur){
+    if(!cur||!cur.el)return;
+    var id=cur.el.id;
+    links.forEach(function(a){
+      a.classList.toggle('now', a.getAttribute('href')==='#'+id);
+    });
+  };
+
+  function fill(){
+    spans.forEach(function(s){s.textContent=s.dataset.t});
+  }
+
+  if(REDUCE){ fill(); nav.classList.add('on'); return; }
+
+  var written=false, raf=0;
+
+  /* Typing, with one deliberate mishearing. The wrong words are the
+     ones that sound the same, because that is the failure the
+     dictionary exists to fix. */
+  function write(){
+    if(written)return; written=true;
+    barBox.classList.add('on');
+    var t0=performance.now(), PER=118, HOLD=560, FIX=340;
+    var order=spans.map(function(s,i){return {s:s,i:i,
+      text:s.dataset.wrong||s.dataset.t, final:s.dataset.t, wrong:!!s.dataset.wrong}});
+
+    (function step(now){
+      var ms=now-t0;
+      /* the meter breathes while it is listening */
+      for(var b=0;b<bars.length;b++){
+        var v=2+5*Math.abs(Math.sin(ms/1000*4.2+b*0.5));
+        bars[b].style.height=v.toFixed(1)+'px';
+      }
+      var done=true, at=0;
+      for(var k=0;k<order.length;k++){
+        var o=order[k], start=at, len=o.text.length*PER/6;
+        at+=len+58;
+        if(ms<start){ o.s.textContent=''; done=false; continue; }
+        var p=Math.min(1,(ms-start)/len);
+        if(p<1)done=false;
+        var n=Math.round(p*o.text.length);
+        if(!o.wrong){ o.s.textContent=o.text.slice(0,n); continue; }
+        /* the misheard entry lands wrong, sits, then is corrected */
+        var after=ms-(start+len);
+        if(after<HOLD){
+          o.s.innerHTML='<span class="w">'+o.text.slice(0,n)+'</span>';
+          if(p>=1)done=false;
+        }else{
+          var q=Math.min(1,(after-HOLD)/FIX);
+          o.s.innerHTML='<span class="'+(q<1?'f':'')+'">'+o.final+'</span>';
+          if(q<1)done=false;
+        }
+      }
+      if(!done){ raf=requestAnimationFrame(step); }
+      else {
+        fill();
+        barBox.classList.remove('on');
+        raf=0;
+      }
+    })(performance.now());
+  }
+
+  /* Out of the way over the hero; in once you have left it. */
+  var hero=document.getElementById('hero');
+  new IntersectionObserver(function(e){
+    var past=!e[0].isIntersecting;
+    nav.classList.toggle('on',past);
+    if(past)write();
+  },{threshold:0}).observe(hero);
 })();
 })();
 </script>
