@@ -601,8 +601,11 @@ footer,#transcribe{position:relative;z-index:1}
   flex:0 1 auto;min-width:0}
 /* Each entry holds the width of its longest reading, so the island
    does not breathe in and out a character at a time while the index
-   writes itself in. */
-.lg-list span{display:block}
+   writes itself in. Only the entry itself takes that reserved width --
+   the reading inside it stays as wide as its own letters, or the
+   underline would be drawn at full width before a word arrives. */
+.lg-list a>span{display:block}
+.lg-list a>span>span{display:inline-block}
 .lg-list a{display:flex;align-items:baseline;text-decoration:none;
   padding:7px 12px;border-radius:9px;white-space:nowrap;position:relative;
   transition:background .16s var(--quick)}
@@ -610,14 +613,18 @@ footer,#transcribe{position:relative;z-index:1}
 .lg-list a:hover span{color:var(--live)}
 .lg-list span{font-size:13px;color:var(--t2);transition:color .2s var(--quick)}
 .lg-list .now span{color:var(--live)}
-.lg-list .w{color:var(--bad);border-bottom:1px dashed rgba(229,83,75,.8);
-  padding-bottom:1px;animation:lgnudge 1.15s var(--quick) infinite}
+.lg-list .w{color:#FF6E63;font-weight:700;
+  border-bottom:1.5px dashed rgba(255,110,99,.95);
+  padding-bottom:2px;animation:lgnudge 1.25s var(--quick) infinite}
 /* The wrong reading is meant to be caught, not merely present -- so it
-   breathes a red glow rather than sitting quietly in red. */
+   burns rather than sitting quietly in red, and it has to hold that
+   for as long as it takes someone to look. */
 @keyframes lgnudge{
-  0%,100%{text-shadow:0 0 7px rgba(229,83,75,.40),0 0 16px rgba(229,83,75,.16)}
-  50%{text-shadow:0 0 13px rgba(229,83,75,.92),0 0 30px rgba(229,83,75,.52),
-                 0 0 48px rgba(229,83,75,.22)}}
+  0%,100%{text-shadow:0 0 8px rgba(255,110,99,.75),0 0 20px rgba(229,83,75,.45),
+                 0 0 42px rgba(229,83,75,.22)}
+  50%{text-shadow:0 0 5px rgba(255,168,160,1),0 0 14px rgba(255,110,99,1),
+                 0 0 30px rgba(229,83,75,.9),0 0 58px rgba(229,83,75,.55),
+                 0 0 96px rgba(229,83,75,.3)}}
 /* And the correction lands with the page's own colour, once, then
    settles -- the glow is the difference between the two states, not
    decoration on both. */
@@ -632,7 +639,8 @@ footer,#transcribe{position:relative;z-index:1}
   .lg-list span{font-size:12.5px}.lg-in{gap:14px;padding:0 15px}}
 @media(max-width:820px){.legend{display:none}}
 @media(prefers-reduced-motion:reduce){.legend{transition:none}
-  .lg-list .w{animation:none;text-shadow:0 0 12px rgba(229,83,75,.6)}}
+  .lg-list .w{animation:none;
+    text-shadow:0 0 10px rgba(255,110,99,.9),0 0 26px rgba(229,83,75,.55)}}
 
 /* ── Dock ────────────────────────────────────────────────── */
 /* A floating island rather than a bar welded to the bottom:
@@ -2484,16 +2492,19 @@ if(FINE&&!REDUCE){
      changes under a breakpoint. */
   function lock(){
     spans.forEach(function(sp){
-      var keep=sp.textContent, w=0;
+      var keep=sp.innerHTML, w=0;
       sp.style.minWidth='';
-      [sp.dataset.t, sp.dataset.wrong].forEach(function(v){
-        if(!v)return;
-        sp.textContent=v;
-        var r=sp.getBoundingClientRect().width;
+      /* Measured in the class each reading is actually drawn in --
+         the wrong one is set bold, and would otherwise outgrow the
+         space reserved for it. */
+      [[sp.dataset.t,''],[sp.dataset.wrong,'w']].forEach(function(pair){
+        if(!pair[0])return;
+        sp.innerHTML='<span class="'+pair[1]+'">'+pair[0]+'</span>';
+        var r=sp.firstChild.getBoundingClientRect().width;
         if(r>w)w=r;
       });
-      sp.textContent=keep;
-      if(w>0)sp.style.minWidth=Math.ceil(w)+'px';
+      sp.innerHTML=keep;
+      if(w>0)sp.style.minWidth=Math.ceil(w+1)+'px';
     });
   }
   lock();
@@ -2516,7 +2527,7 @@ if(FINE&&!REDUCE){
      long enough to be read and doubted. Fix — they correct.
      The dwell is the whole point: a correction nobody saw go wrong is
      not a demonstration of anything. */
-  var TYPE_IN=520, PER=36, GAP=52, DWELL=1200, FIX=420, SETTLE=900;
+  var TYPE_IN=520, PER=36, GAP=52, FIX=420, SETTLE=900, PATIENCE=25000;
 
   function write(){
     if(written)return; written=true;
@@ -2527,58 +2538,76 @@ if(FINE&&!REDUCE){
     });
     var typeEnd=0;
     order.forEach(function(o){ o.at=typeEnd; o.len=o.text.length*PER; typeEnd+=o.len+GAP; });
+    var w=order.filter(function(o){return o.wrong})[0];
 
     var t0=performance.now()+TYPE_IN;
     pulse(true);
 
-    (function step(now){
+    /* Phase one: the index dictates itself in, one entry mis-heard. */
+    (function type(now){
       var ms=now-t0;
+      if(ms<0){ raf=requestAnimationFrame(type); return; }
 
-      if(ms<0){ raf=requestAnimationFrame(step); return; }
-
-      /* Phase one. */
       order.forEach(function(o){
         if(o.wrong)return;
         var p=ms<o.at ? 0 : Math.min(1,(ms-o.at)/o.len);
         o.sp.textContent=o.text.slice(0,Math.round(p*o.text.length));
       });
-
-      var w=order.filter(function(o){return o.wrong})[0];
       var wp=ms<w.at ? 0 : Math.min(1,(ms-w.at)/w.len);
-      var after=ms-typeEnd;
+      w.sp.innerHTML='<span class="w">'+w.text.slice(0,Math.round(wp*w.text.length))+'</span>';
 
-      if(after<0){
-        w.sp.innerHTML='<span class="w">'+w.text.slice(0,Math.round(wp*w.text.length))+'</span>';
-        raf=requestAnimationFrame(step);
-        return;
-      }
+      if(ms<typeEnd){ raf=requestAnimationFrame(type); return; }
 
-      /* Phase two: it sits wrong, and is meant to be noticed. */
-      if(after<DWELL){
-        if(w.sp.firstChild&&w.sp.firstChild.className==='w'){
-          if(w.sp.firstChild.textContent!==w.text)w.sp.firstChild.textContent=w.text;
-        }else{
-          w.sp.innerHTML='<span class="w">'+w.text+'</span>';
-        }
-        pulse(false);
-        raf=requestAnimationFrame(step);
-        return;
-      }
-
-      /* Phase three. */
-      if(after<DWELL+FIX+SETTLE){
-        var cls=(after<DWELL+FIX)?'f':'';
-        var cur=w.sp.firstChild;
-        if(!cur||cur.className!==cls||cur.textContent!==w.final)
-          w.sp.innerHTML='<span class="'+cls+'">'+w.final+'</span>';
-        raf=requestAnimationFrame(step);
-        return;
-      }
-
-      fill();
+      w.sp.innerHTML='<span class="w">'+w.text+'</span>';
       pulse(false);
       raf=0;
+      wait();
     })(performance.now());
+
+    /* Phase two: it sits wrong, glowing, and waits to be noticed.
+       A correction that happens on a timer is a loop playing; a
+       correction that happens because you reached for the wrong word
+       is the product answering you. So the reader triggers it --
+       hovering or clicking the entry -- and the timer is only there
+       so the index does not stay wrong forever for someone who never
+       looked. */
+    function wait(){
+      var link=w.sp.closest('a'), done=false, timer=0;
+      function go(){
+        if(done)return; done=true;
+        clearTimeout(timer);
+        link.removeEventListener('pointerenter',go);
+        link.removeEventListener('click',go);
+        link.removeEventListener('focus',go);
+        correct();
+      }
+      link.addEventListener('pointerenter',go);
+      link.addEventListener('click',go);
+      link.addEventListener('focus',go);
+      timer=setTimeout(go,PATIENCE);
+    }
+
+    /* Phase three: it corrects, flashes the page's own colour once,
+       and settles into a plain index entry. */
+    function correct(){
+      var c0=performance.now();
+      pulse(true);
+      (function fix(now){
+        var ms=now-c0;
+        if(ms<FIX+SETTLE){
+          var cls=(ms<FIX)?'f':'';
+          var cur=w.sp.firstChild;
+          if(!cur||cur.className!==cls||cur.textContent!==w.final)
+            w.sp.innerHTML='<span class="'+cls+'">'+w.final+'</span>';
+          if(ms>FIX)pulse(false);
+          raf=requestAnimationFrame(fix);
+          return;
+        }
+        fill();
+        pulse(false);
+        raf=0;
+      })(performance.now());
+    }
   }
 
   /* Pointing at a chapter tunes the plate to the figure that section
