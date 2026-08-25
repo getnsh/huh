@@ -426,6 +426,14 @@ footer,#transcribe{position:relative;z-index:1}
   .hud.wide{width:380px}
   .win-body{min-height:96px}
 }
+@media(max-width:390px){
+  .stage{--dw:340;--dh:330}
+  .win{left:6px;width:328px}
+  .keychip{left:6px}
+  .hud{width:216px}
+  .hud.wide{width:328px}
+  .hud-partial{font-size:16px}
+}
 @media(prefers-reduced-motion:reduce){.caret{animation:none}}
 
 /* ── Findings ────────────────────────────────────────────── */
@@ -579,7 +587,7 @@ footer,#transcribe{position:relative;z-index:1}
   transition:transform .46s var(--spring);will-change:transform}
 .legend.on{transform:none}
 .lg-in{pointer-events:auto;display:flex;align-items:center;gap:18px;
-  width:min(100%,1160px);height:52px;padding:0 18px;
+  width:auto;max-width:min(100%,1160px);height:52px;padding:0 18px;
   background:#141414;border:1px solid var(--border);border-radius:15px;
   box-shadow:0 12px 38px rgba(0,0,0,.62),0 2px 6px rgba(0,0,0,.5)}
 .lg-mark{font-size:18px;font-weight:600;letter-spacing:-.045em;color:var(--t1);
@@ -591,22 +599,40 @@ footer,#transcribe{position:relative;z-index:1}
 .lg-bars i{width:2px;height:2px;border-radius:1px;background:var(--live);display:block}
 .lg-list{display:flex;align-items:center;gap:2px;list-style:none;margin:0;padding:0;
   flex:0 1 auto;min-width:0}
-.lg-list a{display:flex;align-items:baseline;gap:8px;text-decoration:none;
-  padding:7px 11px;border-radius:9px;white-space:nowrap;position:relative;
+/* Each entry holds the width of its longest reading, so the island
+   does not breathe in and out a character at a time while the index
+   writes itself in. */
+.lg-list span{display:block}
+.lg-list a{display:flex;align-items:baseline;text-decoration:none;
+  padding:7px 12px;border-radius:9px;white-space:nowrap;position:relative;
   transition:background .16s var(--quick)}
 .lg-list a:hover{background:rgba(158,123,255,.10)}
-.lg-list a:hover b,.lg-list a:hover span{color:var(--live)}
-.lg-list b{font-family:var(--mono);font-size:10.5px;font-weight:400;color:var(--t3);
-  font-variant-numeric:tabular-nums;transition:color .2s var(--quick)}
+.lg-list a:hover span{color:var(--live)}
 .lg-list span{font-size:13px;color:var(--t2);transition:color .2s var(--quick)}
-.lg-list .now b,.lg-list .now span{color:var(--live)}
-.lg-list .w{color:var(--bad)}
-.lg-list .f{color:var(--live)}
-/* Below this the timecodes go and the labels carry the index alone,
-   rather than the last chapter quietly falling off the end. */
-@media(max-width:1130px){.lg-list b{display:none}.lg-list a{padding:7px 9px}}
-@media(max-width:900px){.legend{display:none}}
-@media(prefers-reduced-motion:reduce){.legend{transition:none}}
+.lg-list .now span{color:var(--live)}
+.lg-list .w{color:var(--bad);border-bottom:1px dashed rgba(229,83,75,.8);
+  padding-bottom:1px;animation:lgnudge 1.15s var(--quick) infinite}
+/* The wrong reading is meant to be caught, not merely present -- so it
+   breathes a red glow rather than sitting quietly in red. */
+@keyframes lgnudge{
+  0%,100%{text-shadow:0 0 7px rgba(229,83,75,.40),0 0 16px rgba(229,83,75,.16)}
+  50%{text-shadow:0 0 13px rgba(229,83,75,.92),0 0 30px rgba(229,83,75,.52),
+                 0 0 48px rgba(229,83,75,.22)}}
+/* And the correction lands with the page's own colour, once, then
+   settles -- the glow is the difference between the two states, not
+   decoration on both. */
+.lg-list .f{color:var(--live);border-bottom:1px solid rgba(158,123,255,.45);
+  padding-bottom:1px;text-shadow:0 0 12px rgba(158,123,255,.62),
+  0 0 26px rgba(158,123,255,.3)}
+/* Three steps rather than one cliff: the full index, then the same
+   index with the two least load-bearing chapters dropped, then off —
+   below that a phone already has the dock, and two bars of chrome on a
+   small screen is one too many. */
+@media(max-width:1040px){.lg-opt{display:none}.lg-list a{padding:7px 10px}
+  .lg-list span{font-size:12.5px}.lg-in{gap:14px;padding:0 15px}}
+@media(max-width:820px){.legend{display:none}}
+@media(prefers-reduced-motion:reduce){.legend{transition:none}
+  .lg-list .w{animation:none;text-shadow:0 0 12px rgba(229,83,75,.6)}}
 
 /* ── Dock ────────────────────────────────────────────────── */
 /* A floating island rather than a bar welded to the bottom:
@@ -650,13 +676,13 @@ footer{padding:64px 0 40px}
   <a class="lg-mark" href="#hero">huh<span>?</span></a>
   <div class="lg-bars" id="lgBars" aria-hidden="true"></div>
   <ul class="lg-list" id="lgList">
-    <li><a href="#s-does"><b>00:01</b><span data-t="what it does"></span></a></li>
-    <li><a href="#s-why"><b>00:38</b><span data-t="why it exists"></span></a></li>
-    <li><a href="#s-security"><b>01:20</b><span data-t="security"></span></a></li>
-    <li><a href="#s-dictionary"><b>02:35</b><span data-t="what it heard, what it writes" data-wrong="what it herd, what it rights"></span></a></li>
-    <li><a href="#s-model"><b>04:10</b><span data-t="long meetings"></span></a></li>
-    <li><a href="#s-how"><b>05:44</b><span data-t="under the hood"></span></a></li>
-    <li><a href="#s-install"><b>08:02</b><span data-t="install"></span></a></li>
+    <li><a href="#s-does"><span data-t="what it does"></span></a></li>
+    <li class="lg-opt"><a href="#s-why"><span data-t="why it exists"></span></a></li>
+    <li><a href="#s-security"><span data-t="security"></span></a></li>
+    <li><a href="#s-dictionary"><span data-t="what it writes" data-wrong="what it rights"></span></a></li>
+    <li><a href="#s-model"><span data-t="long meetings"></span></a></li>
+    <li class="lg-opt"><a href="#s-how"><span data-t="under the hood"></span></a></li>
+    <li><a href="#s-install"><span data-t="install"></span></a></li>
   </ul>
  </div>
 </nav>
@@ -1394,9 +1420,17 @@ addEventListener('pointerup',function(){P.down=false},{passive:true});
        has the least power to spend, so it takes the native ratio and
        no more. The cap is on total buffer pixels, so a 5K panel asks
        for a large frame rather than an impossible one. */
+    /* Three classes rather than two. A phone draws at its own
+       resolution and no more -- it has the least power and the
+       smallest pixels. A tablet or a small laptop supersamples, but
+       less, and against a tighter ceiling: an iPad in portrait was
+       asking for a buffer of nearly eight megapixels a frame. A large
+       display gets the full treatment. */
     var dpr=Math.min(window.devicePixelRatio||1,2);
-    S=SMALL?dpr:Math.min(dpr*SS,3);
-    if(W*H*S*S>PIXEL_CAP)S=Math.sqrt(PIXEL_CAP/(W*H));
+    var MID=W<1400;
+    var cap=SMALL?3.2e6:(MID?5.5e6:PIXEL_CAP);
+    S=SMALL?dpr:Math.min(dpr*(MID?1.3:SS),MID?2.6:3);
+    if(W*H*S*S>cap)S=Math.sqrt(cap/(W*H));
     if(S<0.75)S=0.75;
     /* A phone screen is small enough that the full mode numbers
        pack the nodal lines too close to read as lines at all, so
@@ -2442,6 +2476,33 @@ if(FINE&&!REDUCE){
     spans.forEach(function(s){s.textContent=s.dataset.t});
   }
 
+  /* The island is only as wide as what is in it, which means the width
+     has to be settled before anything types itself in -- otherwise the
+     whole bar grows a character at a time and never sits still. Each
+     entry reserves the wider of its two readings up front, measured
+     rather than guessed, and re-measured whenever the type size
+     changes under a breakpoint. */
+  function lock(){
+    spans.forEach(function(sp){
+      var keep=sp.textContent, w=0;
+      sp.style.minWidth='';
+      [sp.dataset.t, sp.dataset.wrong].forEach(function(v){
+        if(!v)return;
+        sp.textContent=v;
+        var r=sp.getBoundingClientRect().width;
+        if(r>w)w=r;
+      });
+      sp.textContent=keep;
+      if(w>0)sp.style.minWidth=Math.ceil(w)+'px';
+    });
+  }
+  lock();
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(lock);
+  var lockT=0;
+  addEventListener('resize',function(){
+    clearTimeout(lockT); lockT=setTimeout(lock,140);
+  },{passive:true});
+
   if(REDUCE){ fill(); nav.classList.add('on'); return; }
 
   var written=false, raf=0;
@@ -2449,41 +2510,74 @@ if(FINE&&!REDUCE){
   /* Typing, with one deliberate mishearing. The wrong words are the
      ones that sound the same, because that is the failure the
      dictionary exists to fix. */
+  /* Three phases, deliberately paced.
+     Type — every entry writes itself in, the dictionary one arriving
+     wrong. Dwell — the wrong words sit there, underlined and pulsing,
+     long enough to be read and doubted. Fix — they correct.
+     The dwell is the whole point: a correction nobody saw go wrong is
+     not a demonstration of anything. */
+  var TYPE_IN=520, PER=36, GAP=52, DWELL=1200, FIX=420, SETTLE=900;
+
   function write(){
     if(written)return; written=true;
+
+    var order=spans.map(function(sp){
+      return {sp:sp, text:sp.dataset.wrong||sp.dataset.t,
+              final:sp.dataset.t, wrong:!!sp.dataset.wrong};
+    });
+    var typeEnd=0;
+    order.forEach(function(o){ o.at=typeEnd; o.len=o.text.length*PER; typeEnd+=o.len+GAP; });
+
+    var t0=performance.now()+TYPE_IN;
     pulse(true);
-    var t0=performance.now(), PER=118, HOLD=560, FIX=340;
-    var order=spans.map(function(s,i){return {s:s,i:i,
-      text:s.dataset.wrong||s.dataset.t, final:s.dataset.t, wrong:!!s.dataset.wrong}});
 
     (function step(now){
       var ms=now-t0;
-      var done=true, at=0;
-      for(var k=0;k<order.length;k++){
-        var o=order[k], start=at, len=o.text.length*PER/6;
-        at+=len+58;
-        if(ms<start){ o.s.textContent=''; done=false; continue; }
-        var p=Math.min(1,(ms-start)/len);
-        if(p<1)done=false;
-        var n=Math.round(p*o.text.length);
-        if(!o.wrong){ o.s.textContent=o.text.slice(0,n); continue; }
-        /* the misheard entry lands wrong, sits, then is corrected */
-        var after=ms-(start+len);
-        if(after<HOLD){
-          o.s.innerHTML='<span class="w">'+o.text.slice(0,n)+'</span>';
-          if(p>=1)done=false;
+
+      if(ms<0){ raf=requestAnimationFrame(step); return; }
+
+      /* Phase one. */
+      order.forEach(function(o){
+        if(o.wrong)return;
+        var p=ms<o.at ? 0 : Math.min(1,(ms-o.at)/o.len);
+        o.sp.textContent=o.text.slice(0,Math.round(p*o.text.length));
+      });
+
+      var w=order.filter(function(o){return o.wrong})[0];
+      var wp=ms<w.at ? 0 : Math.min(1,(ms-w.at)/w.len);
+      var after=ms-typeEnd;
+
+      if(after<0){
+        w.sp.innerHTML='<span class="w">'+w.text.slice(0,Math.round(wp*w.text.length))+'</span>';
+        raf=requestAnimationFrame(step);
+        return;
+      }
+
+      /* Phase two: it sits wrong, and is meant to be noticed. */
+      if(after<DWELL){
+        if(w.sp.firstChild&&w.sp.firstChild.className==='w'){
+          if(w.sp.firstChild.textContent!==w.text)w.sp.firstChild.textContent=w.text;
         }else{
-          var q=Math.min(1,(after-HOLD)/FIX);
-          o.s.innerHTML='<span class="'+(q<1?'f':'')+'">'+o.final+'</span>';
-          if(q<1)done=false;
+          w.sp.innerHTML='<span class="w">'+w.text+'</span>';
         }
-      }
-      if(!done){ raf=requestAnimationFrame(step); }
-      else {
-        fill();
         pulse(false);
-        raf=0;
+        raf=requestAnimationFrame(step);
+        return;
       }
+
+      /* Phase three. */
+      if(after<DWELL+FIX+SETTLE){
+        var cls=(after<DWELL+FIX)?'f':'';
+        var cur=w.sp.firstChild;
+        if(!cur||cur.className!==cls||cur.textContent!==w.final)
+          w.sp.innerHTML='<span class="'+cls+'">'+w.final+'</span>';
+        raf=requestAnimationFrame(step);
+        return;
+      }
+
+      fill();
+      pulse(false);
+      raf=0;
     })(performance.now());
   }
 
