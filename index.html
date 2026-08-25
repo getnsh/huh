@@ -604,8 +604,8 @@ footer,#transcribe{position:relative;z-index:1}
    writes itself in. Only the entry itself takes that reserved width --
    the reading inside it stays as wide as its own letters, or the
    underline would be drawn at full width before a word arrives. */
-.lg-list a>span{display:block}
-.lg-list a>span>span{display:inline-block}
+.lg-list a>span{display:block;overflow:hidden}
+.lg-list a>span>span{display:inline-block;white-space:pre}
 .lg-list a{display:flex;align-items:baseline;text-decoration:none;
   padding:7px 12px;border-radius:9px;white-space:nowrap;position:relative;
   transition:background .16s var(--quick)}
@@ -1869,23 +1869,36 @@ if(FINE&&!REDUCE){
 }
 
 /* ═══ 3. MISHEARING ON HOVER ═══ */
+/* A word re-settling: it resolves left to right while the tail is
+   still undecided. Shared, because the name in the transcript section
+   and the misheard entry in the index are the same event happening in
+   two places, and they should move the same way.
+     pool -- the characters the tail churns through. Left to itself it
+   uses the alphabet, which is right for a name being guessed at. The
+   index passes the two readings instead, so the churn stays roughly
+   the width of the word and the bar does not shove itself sideways. */
+function reSettle(el,to,pool,done){
+  var len=Math.max(el.textContent.length,to.length),i=0;
+  var set=pool||' ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  var timer=setInterval(function(){
+    i++;var out=to.slice(0,i);
+    for(var k=i;k<len;k++)out+=set[(Math.random()*set.length)|0];
+    el.textContent=out.slice(0,Math.max(to.length,i));
+    if(i>=len){clearInterval(timer);el.textContent=to;if(done)done();}
+  },24);
+  return function(){clearInterval(timer);};
+}
 document.querySelectorAll('.mh').forEach(function(el){
   if(REDUCE)return;
-  var right=el.textContent,wrong=el.dataset.wrong,timer=null;
-  function scramble(to,cls,then){
-    clearInterval(timer);
-    var len=Math.max(el.textContent.length,to.length),i=0;
+  var right=el.textContent,wrong=el.dataset.wrong,cancel=null;
+  function run(to,cls,then){
+    if(cancel)cancel();
     el.className='mh '+cls;
-    timer=setInterval(function(){
-      i++;var out=to.slice(0,i);
-      for(var k=i;k<len;k++)out+=' ABCDEFGHIJKLMNOPQRSTUVWXYZ'[(Math.random()*27)|0];
-      el.textContent=out.slice(0,Math.max(to.length,i));
-      if(i>=len){clearInterval(timer);el.textContent=to;if(then)then();}
-    },24);
+    cancel=reSettle(el,to,null,then);
   }
-  el.addEventListener('pointerenter',function(){scramble(wrong,'wrong')});
+  el.addEventListener('pointerenter',function(){run(wrong,'wrong')});
   el.addEventListener('pointerleave',function(){
-    scramble(right,'fixed',function(){setTimeout(function(){el.className='mh'},900)})});
+    run(right,'fixed',function(){setTimeout(function(){el.className='mh'},900)})});
 });
 
 /* ═══ 4. MAGNETIC BUTTONS ═══ */
@@ -2493,7 +2506,7 @@ if(FINE&&!REDUCE){
   function lock(){
     spans.forEach(function(sp){
       var keep=sp.innerHTML, w=0;
-      sp.style.minWidth='';
+      sp.style.minWidth=''; sp.style.maxWidth='';
       /* Measured in the class each reading is actually drawn in --
          the wrong one is set bold, and would otherwise outgrow the
          space reserved for it. */
@@ -2504,7 +2517,11 @@ if(FINE&&!REDUCE){
         if(r>w)w=r;
       });
       sp.innerHTML=keep;
-      if(w>0)sp.style.minWidth=Math.ceil(w+1)+'px';
+      /* A floor and a ceiling: the floor stops the bar shrinking while
+         the index types in, the ceiling stops the churn shoving it
+         sideways when a run of wide letters comes up. What overshoots
+         is the undecided tail, and clipping it is invisible. */
+      if(w>0){ w=Math.ceil(w+1)+'px'; sp.style.minWidth=w; sp.style.maxWidth=w; }
     });
   }
   lock();
@@ -2527,7 +2544,7 @@ if(FINE&&!REDUCE){
      long enough to be read and doubted. Fix — they correct.
      The dwell is the whole point: a correction nobody saw go wrong is
      not a demonstration of anything. */
-  var TYPE_IN=520, PER=36, GAP=52, FIX=420, SETTLE=900, PATIENCE=25000;
+  var TYPE_IN=520, PER=36, GAP=52, SETTLE=760, PATIENCE=25000;
 
   function write(){
     if(written)return; written=true;
@@ -2587,26 +2604,18 @@ if(FINE&&!REDUCE){
       timer=setTimeout(go,PATIENCE);
     }
 
-    /* Phase three: it corrects, flashes the page's own colour once,
-       and settles into a plain index entry. */
+    /* Phase three: the word re-settles -- the same motion the misheard
+       name uses further down the page, because it is the same event --
+       flashes the page's own colour once, and goes back to being a
+       plain index entry. */
     function correct(){
-      var c0=performance.now();
+      var host=w.sp.firstChild;
+      if(!host){ fill(); pulse(false); return; }
       pulse(true);
-      (function fix(now){
-        var ms=now-c0;
-        if(ms<FIX+SETTLE){
-          var cls=(ms<FIX)?'f':'';
-          var cur=w.sp.firstChild;
-          if(!cur||cur.className!==cls||cur.textContent!==w.final)
-            w.sp.innerHTML='<span class="'+cls+'">'+w.final+'</span>';
-          if(ms>FIX)pulse(false);
-          raf=requestAnimationFrame(fix);
-          return;
-        }
-        fill();
-        pulse(false);
-        raf=0;
-      })(performance.now());
+      host.className='f';
+      reSettle(host, w.final, (w.final+w.text).replace(/ /g,''), function(){
+        setTimeout(function(){ fill(); pulse(false); }, SETTLE);
+      });
     }
   }
 
