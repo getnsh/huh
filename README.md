@@ -19,7 +19,8 @@ Hold a key, speak, release. The text appears wherever the cursor is.
 Dictation into any application, transcription of meeting recordings, and a
 dictionary that learns the words and names your recogniser keeps getting wrong.
 
-No user content leaves the machine. There is no account and no telemetry. Speech
+Free software under the GPLv3. No user content leaves the machine. There is no
+account and no telemetry. Speech
 recognition, correction, summarisation and vocabulary learning all run on-device;
 the only outbound request the app can make is downloading the optional Parakeet
 models, once, if you choose that engine.
@@ -254,5 +255,14 @@ corrections), `inject` (insertion strategy and outcome).
 
 ## License
 
-Free to use, on as many of your own machines as you like. Please don't ship
-modified or rebranded copies — see [LICENSE](LICENSE).
+huh? is free software, released under the **GNU General Public License, version
+3 or later** — see [LICENSE](LICENSE).
+
+Use it, read it, change it, and share what you change. The one obligation the
+licence carries is reciprocity: if you distribute a modified version, it has to
+be free software too, under the same licence, with its source available. Nobody
+can take this work closed.
+
+Contributions are accepted under the same terms — opening a pull request means
+your contribution is licensed under the GPL, like the rest of the project. See
+[CONTRIBUTING.md](CONTRIBUTING.md).

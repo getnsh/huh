@@ -68,3 +68,10 @@ most of these suites exist because a rule was once too broad.
 
 State what changed and why. If behaviour changed, say how it was verified. If a
 threshold or heuristic changed, include the measurement that motivated it.
+
+## Licensing
+
+huh? is licensed under the GNU General Public License, version 3 or later. By
+opening a pull request you agree that your contribution is licensed under the
+same terms. There is no separate contributor agreement and no copyright
+assignment — you keep the copyright in what you wrote.
