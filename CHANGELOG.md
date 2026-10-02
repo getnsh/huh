@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] — 2026-10-02
+
+### Changed
+
+- The session panel and the collapsed mark no longer carry a coloured border
+  or glow, and the waveform is drawn in a flat tint rather than a gradient.
+  The accent stays where it means something: the centre bar of the mark, and
+  the rail beside a line of transcript.
+
 ## [0.4.1] — 2026-10-02
 
 ### Fixed

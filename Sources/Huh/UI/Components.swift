@@ -431,19 +431,13 @@ struct VoiceTrace: View {
                 }
 
                 let shading = GraphicsContext.Shading.linearGradient(
-                    Gradient(colors: [tint.opacity(0.18), tint.opacity(0.6), tint]),
+                    Gradient(colors: [tint, tint]),
                     startPoint: .zero,
                     endPoint: CGPoint(x: size.width, y: 0)
                 )
 
                 // The glow is the same path drawn blurred underneath, so loud
                 // passages bloom and quiet ones do not.
-                if active && !reduceMotion {
-                    var glow = context
-                    glow.addFilter(.blur(radius: 4))
-                    glow.opacity = 0.5
-                    glow.fill(path, with: shading)
-                }
                 context.opacity = active ? 1 : 0.35
                 context.fill(path, with: shading)
             }

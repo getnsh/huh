@@ -330,12 +330,11 @@ private struct CollapsedMark: View {
                     .overlay { Capsule().fill(Theme.base.opacity(0.62)) }
                     .overlay {
                         Capsule().strokeBorder(
-                            session.isRunning ? Theme.live.opacity(hovering ? 0.5 : 0.3) : Theme.border,
+                            hovering ? Theme.hover : Theme.border,
                             lineWidth: 1
                         )
                     }
                     .shadow(color: .black.opacity(0.5), radius: 18, y: 7)
-                    .shadow(color: Theme.live.opacity(session.isRunning ? 0.18 : 0), radius: 16)
             }
             .scaleEffect(hovering ? 1.045 : 1)
             .contentShape(Capsule())
@@ -677,11 +676,8 @@ private extension View {
                 shape
                     .fill(.ultraThinMaterial)
                     .overlay { shape.fill(Theme.base.opacity(0.62)) }
-                    .overlay {
-                        shape.strokeBorder(glowing ? Theme.live.opacity(0.34) : Theme.border, lineWidth: 1)
-                    }
+                    .overlay { shape.strokeBorder(Theme.border, lineWidth: 1) }
                     .shadow(color: .black.opacity(0.5), radius: 30, y: 12)
-                    .shadow(color: Theme.live.opacity(glowing ? 0.14 : 0), radius: 24)
             }
             .animation(Theme.quick, value: glowing)
     }
