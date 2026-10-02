@@ -33,6 +33,31 @@ via the Accessibility API, falling back to the pasteboard when an application
 does not support direct insertion. A floating overlay shows the live
 transcription and confirms where the text was delivered.
 
+**It can hear your Mac, not just you**
+Turn on *Your Mac as well as you* and holding the key captures the microphone and
+whatever the machine is playing, summed into one stream. Hold it over a video and
+the video gets transcribed; say something over the top of it and both land in the
+same sentence. Built on a Core Audio process tap, so the permission it asks for
+is audio recording and not screen recording, and playback is never muted.
+
+**Live sessions, for calls**
+Leave it running through a meeting. It transcribes you and the room through
+separate recognisers, so every line knows which side said it, and an edge panel
+shows both waveforms and the transcript arriving as it is spoken. Press stop and
+the session lands in the library as a transcript, ready to summarise.
+
+While a session runs the panel sits at the edge of the screen as the product
+mark, moving to whoever is speaking. Click it for the whole session, drag it
+wherever you want it.
+
+It also notices when a call starts. Core Audio knows which processes have the
+microphone open, and a call is exactly that: some other application listening.
+That one fact catches Google Meet or anything else in a browser tab, Slack
+huddles, Zoom, Teams, FaceTime and Discord, with no per-application integration
+to write and none to maintain. Spotting a call needs no permission at all, and a
+spotted call is offered rather than recorded — automatic capture is a setting,
+and it is off until you turn it on.
+
 **File transcription**
 Drop an audio or video file onto the window, or press ⌘O. Roughly **40× realtime**
 on Apple silicon, so an hour-long recording completes in about ninety seconds.
@@ -166,6 +191,7 @@ stops with a clear message if the Metal toolchain is missing.
 | Permission | Why | How it is granted |
 |---|---|---|
 | Microphone | Capturing speech | Prompted at first launch |
+| Audio Recording | Capturing what the Mac is playing, for system audio and live sessions | Prompted the first time it is used; not needed otherwise |
 | Speech Recognition | On-device transcription | Prompted at first launch |
 | Accessibility | Observing the push-to-talk key **and** inserting text | Manually, in System Settings ▸ Privacy & Security ▸ Accessibility |
 
@@ -189,6 +215,16 @@ Insertion reports its outcome: *Inserted at cursor* via the Accessibility API,
 *Pasted at cursor* via the pasteboard, or *Copied to clipboard* when no editable
 field has focus — in which case no keystroke is synthesised and the text is left
 where it can be retrieved.
+
+### Sitting in on a meeting
+
+**Start Meeting** in the window, ⇧⌘M, or the menu bar. It transcribes you and
+your Mac separately until you stop it, then saves the session to Transcripts.
+The panel collapses to the mark; click it to see the transcript arriving, drag
+it anywhere.
+
+If *Notice when a call starts* is on, which it is by default, it offers instead
+of waiting to be asked.
 
 ### Transcribing a recording
 
@@ -259,9 +295,8 @@ huh? is free software, released under the **GNU General Public License, version
 3 or later** — see [LICENSE](LICENSE).
 
 Use it, read it, change it, and share what you change. The one obligation the
-licence carries is reciprocity: if you distribute a modified version, it has to
-be free software too, under the same licence, with its source available. Nobody
-can take this work closed.
+licence carries is reciprocity: if you pass on a modified version, you pass on
+its source too, under these same terms. The freedom travels with the code.
 
 Contributions are accepted under the same terms — opening a pull request means
 your contribution is licensed under the GPL, like the rest of the project. See

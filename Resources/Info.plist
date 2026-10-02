@@ -45,6 +45,8 @@
          cannot function without; see PRIVACY.md for the full rationale. -->
     <key>NSMicrophoneUsageDescription</key>
     <string>huh? records audio while you hold the push-to-talk key so it can transcribe your speech on this Mac.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>huh? captures what your Mac is playing so a meeting or call can be transcribed beside your own voice. The audio never leaves this machine.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>huh? transcribes speech using Apple's on-device speech models. Audio is not sent anywhere.</string>
 </dict>

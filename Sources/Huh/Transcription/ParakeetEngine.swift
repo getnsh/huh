@@ -24,6 +24,7 @@ final class ParakeetEngine: TranscriptionEngine {
     let id: EngineID = .parakeet
     var onPartial: ((String) -> Void)?
     var onPreparationStatus: ((String) -> Void)?
+    var onFinalSegment: ((String) -> Void)?
     var contextualStrings: [String] = []
 
     private let locale: Locale

@@ -89,7 +89,7 @@ final class LearningScan: ObservableObject {
 
     private func analyse(_ transcript: Transcript) async {
         analysing = transcript.id
-        let label = transcript.source == .file ? transcript.sourceName : "your dictation"
+        let label = transcript.source == .dictation ? "your dictation" : transcript.displayName
         stage = "Reading \(label)…"
         defer { analysing = nil; stage = "" }
 

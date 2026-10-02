@@ -1,5 +1,6 @@
-import Foundation
 import Combine
+import CoreGraphics
+import Foundation
 
 enum EngineID: String, CaseIterable, Identifiable, Codable {
     case appleSpeech
@@ -122,6 +123,49 @@ final class AppSettings: ObservableObject {
     @Published var hasAskedLaunchAtLogin: Bool {
         didSet { store.set(hasAskedLaunchAtLogin, forKey: "hasAskedLaunchAtLogin") }
     }
+    /// Whether holding the key also captures what the Mac is playing.
+    ///
+    /// Off by default, and deliberately so. Recording the microphone is what
+    /// someone pressing a dictation key expects; recording everything the
+    /// machine is playing is not, and it is the kind of default that should be
+    /// chosen rather than discovered.
+    @Published var hearsSystemAudio: Bool {
+        didSet { store.set(hearsSystemAudio, forKey: "hearsSystemAudio") }
+    }
+    /// Whether to notice when a call starts. Reads nothing but the list of
+    /// processes using audio, so it needs no permission and is on by default.
+    @Published var watchesForMeetings: Bool {
+        didSet { store.set(watchesForMeetings, forKey: "watchesForMeetings") }
+    }
+    /// Whether a detected call begins capturing on its own, rather than
+    /// offering to.
+    @Published var capturesMeetingsAutomatically: Bool {
+        didSet { store.set(capturesMeetingsAutomatically, forKey: "capturesMeetingsAutomatically") }
+    }
+
+    /// Where the session panel was last put, as its top-left corner in screen
+    /// coordinates. Nil until it has been dragged, which is what keeps the
+    /// default -- tucked under the top-right corner -- from being a position
+    /// that has to be stored to be correct.
+    ///
+    /// Not published: only the panel reads it, and republishing it on every
+    /// frame of a drag would redraw the settings window for no reason.
+    var panelAnchor: CGPoint? {
+        get {
+            guard store.object(forKey: "panelAnchorX") != nil else { return nil }
+            return CGPoint(x: store.double(forKey: "panelAnchorX"),
+                           y: store.double(forKey: "panelAnchorY"))
+        }
+        set {
+            guard let newValue else {
+                store.removeObject(forKey: "panelAnchorX")
+                store.removeObject(forKey: "panelAnchorY")
+                return
+            }
+            store.set(newValue.x, forKey: "panelAnchorX")
+            store.set(newValue.y, forKey: "panelAnchorY")
+        }
+    }
 
     private let store = UserDefaults.standard
 
@@ -139,6 +183,9 @@ final class AppSettings: ObservableObject {
         cleanupLevel = CleanupLevel(rawValue: store.string(forKey: "cleanupLevel") ?? "") ?? .standard
         summaryEngine = SummaryEngineID(rawValue: store.string(forKey: "summaryEngine") ?? "") ?? .apple
         hasAskedLaunchAtLogin = store.bool(forKey: "hasAskedLaunchAtLogin")
+        hearsSystemAudio = store.bool(forKey: "hearsSystemAudio")
+        watchesForMeetings = store.object(forKey: "watchesForMeetings") as? Bool ?? true
+        capturesMeetingsAutomatically = store.bool(forKey: "capturesMeetingsAutomatically")
     }
 
     var locale: Locale { Locale(identifier: localeIdentifier) }

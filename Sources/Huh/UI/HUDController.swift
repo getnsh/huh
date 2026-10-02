@@ -88,14 +88,23 @@ final class HUDController {
 
 private struct HUDView: View {
     @EnvironmentObject private var controller: DictationController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let barCount = 28
     private let compactWidth: CGFloat = 310
+    private let mixedWidth: CGFloat = 388
     private let expandedWidth: CGFloat = 580
 
     private var isExpanded: Bool { !controller.partialText.isEmpty && controller.confirmation == nil }
     private var isListening: Bool {
         controller.state == .listening || controller.state == .starting
+    }
+    /// Two sources means two traces, which needs the room to put them in.
+    private var isMixed: Bool { controller.isHearingMac && controller.confirmation == nil }
+
+    private var width: CGFloat {
+        if isExpanded { return expandedWidth }
+        return isMixed ? mixedWidth : compactWidth
     }
 
     var body: some View {
@@ -125,7 +134,7 @@ private struct HUDView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, isExpanded ? 18 : 14)
-        .frame(width: isExpanded ? expandedWidth : compactWidth)
+        .frame(width: width)
         .background {
             let shape = RoundedRectangle(cornerRadius: Theme.radiusPanel + 6, style: .continuous)
             shape
@@ -135,7 +144,15 @@ private struct HUDView: View {
                 .shadow(color: .black.opacity(0.45), radius: 26, y: 10)
                 .shadow(color: Theme.live.opacity(isListening ? 0.16 : 0), radius: 20)
         }
+        // The press itself is the one moment the overlay is certainly being
+        // looked at, so it gets a mark of its own: a ring leaving the pill,
+        // and the pill taking the press. Both are one-shot and keyed on the
+        // press count rather than on the state, which also changes for
+        // reasons that are not a press.
+        .background { if !reduceMotion { PressBloom().id(controller.pressCount) } }
+        .modifier(PressPop(trigger: controller.pressCount, enabled: !reduceMotion))
         .animation(Theme.spring, value: isExpanded)
+        .animation(Theme.spring, value: isMixed)
         .animation(Theme.quick, value: isListening)
         .animation(Theme.spring, value: controller.confirmation)
     }
@@ -153,6 +170,8 @@ private struct HUDView: View {
                 Spacer(minLength: 0)
             }
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        } else if isMixed {
+            mixedHeader
         } else {
             liveHeader
         }
@@ -182,6 +201,42 @@ private struct HUDView: View {
         }
     }
 
+    /// Both sources, stacked and labelled. Which one is carrying the sentence
+    /// matters while it is being spoken: a trace that is flat tells you the
+    /// video is paused or the microphone is muted, and that is worth knowing
+    /// before the transcript arrives rather than after.
+    private var mixedHeader: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 10) {
+                Text(caption.isEmpty ? "Listening" : caption)
+                    .font(Theme.medium(12.5))
+                    .foregroundStyle(isListening ? Theme.live : Theme.textSecondary)
+                    .lineLimit(1)
+                    .fixedSize()
+                Spacer(minLength: 0)
+                if controller.state == .transcribing {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            trace("You", controller.levelHistory, Theme.live)
+            trace("Mac", controller.systemHistory, Theme.liveSoft)
+        }
+        .transition(.opacity)
+    }
+
+    private func trace(_ label: String, _ history: [Float], _ tint: Color) -> some View {
+        HStack(spacing: 9) {
+            Text(label)
+                .font(Theme.medium(9.5))
+                .foregroundStyle(Theme.textTertiary)
+                .textCase(.uppercase)
+                .tracking(0.6)
+                .frame(width: 26, alignment: .leading)
+            VoiceTrace(history: history, active: isListening, barCount: 40, tint: tint)
+                .frame(height: 18)
+        }
+    }
+
     private var borderTint: Color {
         if controller.confirmation != nil { return Theme.live.opacity(0.45) }
         return isListening ? Theme.live.opacity(0.38) : Theme.border
@@ -194,6 +249,47 @@ private struct HUDView: View {
         case .transcribing:        return "Transcribing…"
         case .failed(let message): return message
         case .idle:                return Brand.tagline
+        }
+    }
+}
+
+/// A ring leaving the pill once, on the press.
+///
+/// Recreated rather than reset: giving it the press count as its identity
+/// means SwiftUI builds a new one per press, and a view that animates on
+/// appear needs no state machine to run again.
+private struct PressBloom: View {
+    @State private var out = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.radiusPanel + 6, style: .continuous)
+            .strokeBorder(Theme.live.opacity(0.6), lineWidth: 1.5)
+            .scaleEffect(out ? 1.16 : 0.97)
+            .opacity(out ? 0 : 0.85)
+            .allowsHitTesting(false)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.62)) { out = true }
+            }
+    }
+}
+
+/// The pill giving a little under the press and springing back.
+private struct PressPop: ViewModifier {
+    let trigger: Int
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.keyframeAnimator(initialValue: 1.0, trigger: trigger) { view, scale in
+                view.scaleEffect(scale)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    SpringKeyframe(0.955, duration: 0.09, spring: .snappy)
+                    SpringKeyframe(1.0, duration: 0.36, spring: .bouncy)
+                }
+            }
+        } else {
+            content
         }
     }
 }

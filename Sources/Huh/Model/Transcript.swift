@@ -26,6 +26,9 @@ struct TranscriptSegment: Codable, Hashable, Identifiable {
 enum TranscriptSource: String, Codable {
     case dictation
     case file
+    /// A session that ran in the background: a call, or anything else
+    /// transcribed live from both the microphone and the Mac's own output.
+    case meeting
 }
 
 struct Transcript: Identifiable, Codable, Hashable {
@@ -58,6 +61,26 @@ struct Transcript: Identifiable, Codable, Hashable {
     var analysisFindings: Int = 0
 
     var wasCorrected: Bool { !corrections.isEmpty }
+
+    /// The glyph that goes with `displayName`.
+    var listSymbol: String {
+        switch source {
+        case .file:      return "waveform"
+        case .meeting:   return "person.wave.2.fill"
+        case .dictation: return "mic.fill"
+        }
+    }
+
+    /// What to call this in a list. A recording carries its filename and a
+    /// session carries what it was listening to; dictation has neither and is
+    /// named after what it is.
+    var displayName: String {
+        switch source {
+        case .file:      return sourceName
+        case .meeting:   return sourceName.isEmpty ? "Live session" : sourceName
+        case .dictation: return "Dictation"
+        }
+    }
 
     var wordCount: Int {
         text.split { $0 == " " || $0 == "\n" }.count

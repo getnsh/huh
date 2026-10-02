@@ -43,6 +43,18 @@ final class DictationController: ObservableObject {
     /// rather than as a failure at the moment the key is pressed.
     @Published private(set) var inputMissing = false
     @Published var statusMessage: String?
+    /// Levels from the Mac's own output, when it is being captured alongside
+    /// the microphone. Kept separate from `levelHistory` so the overlay can
+    /// show two traces: a summed one would make a silent speaker look live
+    /// whenever a video was playing.
+    @Published private(set) var systemHistory: [Float] = []
+    /// Whether this utterance is also capturing what the Mac is playing.
+    @Published private(set) var isHearingMac = false
+    /// Incremented every time an utterance begins, so the overlay can fire a
+    /// one-shot animation on the press rather than on a state change it would
+    /// otherwise have to debounce.
+    @Published private(set) var pressCount = 0
+
     /// Set briefly after insertion so the overlay can confirm the destination.
     /// Dictation is performed while another application has focus, where a
     /// silent success is indistinguishable from a failure.
@@ -88,6 +100,22 @@ final class DictationController: ObservableObject {
             if self.levelHistory.count > self.historyDepth {
                 self.levelHistory.removeFirst(self.levelHistory.count - self.historyDepth)
             }
+        }
+
+        audio.onSystemLevel = { [weak self] value in
+            guard let self else { return }
+            self.systemHistory.append(value)
+            if self.systemHistory.count > self.historyDepth {
+                self.systemHistory.removeFirst(self.systemHistory.count - self.historyDepth)
+            }
+        }
+
+        // The microphone is the stream that must work. A tap that will not
+        // start is reported once and the utterance continues without it.
+        audio.onSystemAudioUnavailable = { [weak self] error in
+            guard let self else { return }
+            self.isHearingMac = false
+            self.statusMessage = error.localizedDescription
         }
 
         hotkey.onPress = { [weak self] in self?.handlePress() }
@@ -272,7 +300,14 @@ final class DictationController: ObservableObject {
         state = .starting
         partialText = ""
         confirmation = nil
+        pressCount += 1
         levelHistory.removeAll(keepingCapacity: true)
+        systemHistory.removeAll(keepingCapacity: true)
+
+        // Decided per utterance rather than once at launch, so the setting
+        // takes effect on the next press instead of the next relaunch.
+        isHearingMac = settings.hearsSystemAudio
+        audio.source = settings.hearsSystemAudio ? .mixed : .microphone
         stopRequested = false
         utteranceStart = Date()
 
@@ -352,6 +387,7 @@ final class DictationController: ObservableObject {
                 partialText = ""
                 level = 0
                 levelHistory.removeAll(keepingCapacity: true)
+                systemHistory.removeAll(keepingCapacity: true)
                 state = .idle
                 if confirmation == nil { hud?.hide() }
             } catch {
@@ -379,6 +415,7 @@ final class DictationController: ObservableObject {
         partialText = ""
         level = 0
         levelHistory.removeAll(keepingCapacity: true)
+        systemHistory.removeAll(keepingCapacity: true)
         state = .idle
         hud?.hide()
     }

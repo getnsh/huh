@@ -25,3 +25,9 @@ xcuserdata/
 *.p12
 *.cer
 *.provisionprofile
+
+# Scratch helpers
+.probe.sh
+.ship.sh
+.fix.sh
+*-log.txt

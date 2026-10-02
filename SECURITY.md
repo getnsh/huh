@@ -52,10 +52,24 @@ which would transmit input to Apple's servers. The on-device guarantee is
 enforced by the types used, not by configuration.
 
 **Hardened Runtime, minimal entitlements.** Builds are signed with the Hardened
-Runtime enabled. The entitlement set is a single entry,
-`com.apple.security.device.audio-input`. There is no JIT entitlement, no
-unsigned-executable-memory entitlement, no library-validation exemption and no
-debugger entitlement.
+Runtime enabled. The entitlement set is two entries, both about audio:
+`com.apple.security.device.audio-input` for the microphone and
+`com.apple.security.device.audio-capture` for what the Mac itself is playing.
+There is no JIT entitlement, no unsigned-executable-memory entitlement, no
+library-validation exemption and no debugger entitlement.
+
+**System audio is captured through a tap, not a screen recording.** Transcribing
+a call could be done with ScreenCaptureKit, which would mean granting Screen
+Recording to an application that only wants sound. A Core Audio process tap asks
+for audio and nothing else, so the permission matches the purpose. The tap is
+created only while a session or an utterance is actually running, is destroyed
+when it ends, and leaves playback unmuted, so nothing is captured silently.
+
+**Spotting a call reads no content.** Noticing that a meeting has started means
+reading Core Audio's list of processes and asking which of them has the
+microphone open. That requires no permission, carries no audio, and sees no
+screen, no window titles and no browser tabs. A detected call is offered, not
+recorded: automatic capture is a setting that is off until it is turned on.
 
 **The App Sandbox is not enabled.** The application's primary function requires
 the Accessibility API to read the focused element of another process and insert

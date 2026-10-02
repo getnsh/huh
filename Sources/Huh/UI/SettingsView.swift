@@ -8,6 +8,7 @@ struct SettingsView: View {
     @ObservedObject private var launch = LaunchAtLogin.shared
     @ObservedObject private var devices = AudioDevices.shared
     @ObservedObject private var localModel = LocalLanguageModel.shared
+    @ObservedObject private var meetings = MeetingMonitor.shared
 
     var body: some View {
         // Scrolling, not a taller window.
@@ -68,6 +69,57 @@ struct SettingsView: View {
                 if !devices.hasInput {
                     note("Many desktop Macs have no built-in microphone. Transcribing an existing recording works regardless.")
                 }
+            }
+
+            group("What it hears") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your Mac as well as you")
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text("Hold the key over a video or a call and both get transcribed.")
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    Spacer(minLength: 10)
+                    Toggle("", isOn: $settings.hearsSystemAudio)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                }
+                Divider().overlay(Theme.borderSoft)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notice when a call starts")
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(meetingStatus)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    Spacer(minLength: 10)
+                    Toggle("", isOn: $settings.watchesForMeetings)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                }
+                if settings.watchesForMeetings {
+                    HStack {
+                        Text("Start listening on its own")
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                        Spacer(minLength: 10)
+                        Toggle("", isOn: $settings.capturesMeetingsAutomatically)
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .labelsHidden()
+                    }
+                    note(settings.capturesMeetingsAutomatically
+                         ? "A call starts and \(Brand.name) begins transcribing it without asking."
+                         : "A call starts and \(Brand.name) asks first. Nothing is recorded until you say so.")
+                }
+                note("Spotting a call means reading the list of processes using audio, nothing more: no screen, no window titles, no browser tabs. Capturing what the Mac plays needs the audio recording permission, which macOS asks for the first time it happens.")
+                note("Recording a conversation is your call to make. In some places everyone on it has to be told first.")
             }
 
             group("Model") {
@@ -231,6 +283,14 @@ struct SettingsView: View {
             Spacer()
             content()
         }
+    }
+
+    private var meetingStatus: String {
+        if !settings.watchesForMeetings { return "Calls are ignored." }
+        if let app = meetings.participants.first?.displayName {
+            return "A \(app) call is running right now."
+        }
+        return "Google Meet, Slack, Zoom, Teams, FaceTime. No call right now."
     }
 
     private func note_(_ text: String) -> some View { note(text) }

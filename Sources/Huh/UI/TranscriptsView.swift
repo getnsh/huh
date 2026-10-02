@@ -296,7 +296,7 @@ private struct TranscriptDetail: View {
             .keyboardShortcut(.escape, modifiers: [])
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(transcript.source == .file ? transcript.sourceName : "Dictation")
+                Text(transcript.displayName)
                     .font(Theme.medium(13.5))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
@@ -626,14 +626,14 @@ private struct SearchResultRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                Image(systemName: hit.transcript.source == .file ? "waveform" : "mic.fill")
+                Image(systemName: hit.transcript.listSymbol)
                     .font(.system(size: 10))
                     .foregroundStyle(Theme.textTertiary)
                 Button {
                     ui.transcriptQuery = ""
                     ui.openTranscript = hit.transcript.id
                 } label: {
-                    Text(hit.transcript.source == .file ? hit.transcript.sourceName : "Dictation")
+                    Text(hit.transcript.displayName)
                         .font(Theme.medium(12.5))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1).truncationMode(.middle)

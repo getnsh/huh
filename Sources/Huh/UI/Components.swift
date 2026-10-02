@@ -357,3 +357,237 @@ struct IndeterminateBar: View {
         .frame(height: 3)
     }
 }
+
+// MARK: - Live audio
+
+/// Scales a window of levels against its own recent peak.
+///
+/// Raw levels are honest and nearly useless to look at. A microphone a foot
+/// from a mouth and a video playing at a third of the system volume differ by
+/// more than an order of magnitude, so a meter drawn from the raw figure is
+/// either pinned or flat depending on the source. Dividing by the loudest
+/// thing in the visible window gives a trace that uses its full height
+/// whatever it is listening to, and the floor stops genuine silence from being
+/// amplified into a signal.
+enum LevelScale {
+    /// Below this, a window is treated as silence rather than as something
+    /// quiet worth magnifying.
+    static let floor: Float = 0.06
+
+    static func reference(_ history: [Float]) -> Float {
+        max(history.max() ?? 0, floor)
+    }
+
+    static func normalised(_ value: Float, in history: [Float]) -> Double {
+        Double(min(1, max(0, value / reference(history))))
+    }
+}
+
+/// A mirrored level trace: bars grow out from a centre line, newest on the
+/// right, older bars fading toward the left.
+///
+/// `LevelBars` reads as a meter, which is right for a status pill. A session
+/// panel is watched for an hour, and wants something closer to a signal: a
+/// trace that is legible at a glance as sound arriving, and quiet when it is
+/// not. Drawn in a `Canvas` rather than as a stack of shapes because there are
+/// two of these on screen at once, redrawing thirty times a second.
+struct VoiceTrace: View {
+
+    let history: [Float]
+    let active: Bool
+    var barCount: Int = 44
+    var tint: Color = Theme.live
+    var spacing: CGFloat = 2
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !active || reduceMotion)) { timeline in
+            Canvas { context, size in
+                let phase = timeline.date.timeIntervalSinceReferenceDate
+                let barWidth = max(1.5, (size.width - spacing * CGFloat(barCount - 1)) / CGFloat(barCount))
+                let middle = size.height / 2
+
+                var path = Path()
+                for index in 0..<barCount {
+                    let amount = amplitude(at: index, phase: phase)
+                    let height = max(barWidth, amount * size.height)
+                    let x = CGFloat(index) * (barWidth + spacing)
+                    path.addRoundedRect(
+                        in: CGRect(x: x, y: middle - height / 2, width: barWidth, height: height),
+                        cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
+                    )
+                }
+
+                let shading = GraphicsContext.Shading.linearGradient(
+                    Gradient(colors: [tint.opacity(0.14), tint.opacity(0.55), tint]),
+                    startPoint: .zero,
+                    endPoint: CGPoint(x: size.width, y: 0)
+                )
+
+                // The glow is the same path drawn blurred underneath, so loud
+                // passages bloom and quiet ones do not.
+                if active && !reduceMotion {
+                    var glow = context
+                    glow.addFilter(.blur(radius: 5))
+                    glow.opacity = 0.6
+                    glow.fill(path, with: shading)
+                }
+                context.opacity = active ? 1 : 0.35
+                context.fill(path, with: shading)
+            }
+        }
+    }
+
+    private func amplitude(at index: Int, phase: TimeInterval) -> Double {
+        let offset = index - (barCount - history.count)
+        let level = (offset >= 0 && offset < history.count)
+            ? LevelScale.normalised(history[offset], in: history)
+            : 0
+        // Compress the upper range so loud speech does not saturate the trace.
+        let shaped = pow(min(1, level), 0.65)
+        // A flat line reads as broken rather than as silence.
+        let idle = (active && !reduceMotion)
+            ? 0.045 * (0.5 + 0.5 * sin(phase * 2.6 + Double(index) * 0.5))
+            : 0
+        return min(1, shaped * 0.92 + idle)
+    }
+}
+
+/// A dot with a ring expanding out of it: something is running.
+struct PulsingDot: View {
+
+    let active: Bool
+    var tint: Color = Theme.live
+    var size: CGFloat = 7
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(tint.opacity(0.55), lineWidth: 1)
+                .frame(width: size, height: size)
+                .scaleEffect(expanded ? 2.8 : 1)
+                .opacity(expanded ? 0 : 0.9)
+            Circle()
+                .fill(active ? tint : Theme.textTertiary)
+                .frame(width: size, height: size)
+                .shadow(color: tint.opacity(active ? 0.9 : 0), radius: 5)
+        }
+        .frame(width: size * 3, height: size * 3)
+        .onAppear { animate() }
+        .onChange(of: active) { _, _ in animate() }
+    }
+
+    private func animate() {
+        guard active, !reduceMotion else {
+            expanded = false
+            return
+        }
+        expanded = false
+        withAnimation(.easeOut(duration: 1.7).repeatForever(autoreverses: false)) {
+            expanded = true
+        }
+    }
+}
+
+/// Elapsed time, ticking. Monospaced digits so the panel does not reflow every
+/// second.
+struct ElapsedLabel: View {
+    let since: Date?
+    /// A fixed length to show instead of counting. Set once something has
+    /// stopped, so the readout holds at what it reached.
+    var frozen: TimeInterval?
+    var font: Font = Theme.medium(12)
+    var tint: Color = Theme.textSecondary
+
+    var body: some View {
+        if let frozen {
+            label(for: frozen)
+        } else {
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                label(for: since.map { timeline.date.timeIntervalSince($0) } ?? 0)
+            }
+        }
+    }
+
+    private func label(for interval: TimeInterval) -> some View {
+        Text(Self.format(interval))
+            .font(font)
+            .monospacedDigit()
+            .foregroundStyle(tint)
+    }
+
+    static func format(_ interval: TimeInterval) -> String {
+        let total = Int(max(0, interval))
+        if total >= 3600 {
+            return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+        }
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+}
+
+/// The product mark, moving to whoever is speaking.
+///
+/// The same five capsules as the application icon, at the same weights, so at
+/// rest it is the logo and not an approximation of it: the collapsed panel has
+/// to be recognisable as this application sitting at the edge of the screen,
+/// and a generic meter would not be. Sound lifts the bars out of their resting
+/// heights, each on its own phase so it reads as speech rather than as a level
+/// meter, and the centre bar carries the accent exactly as the icon does.
+struct SpeakingMark: View {
+
+    /// The recent levels of whatever is being listened to.
+    let history: [Float]
+    let active: Bool
+    /// Tints the centre bar. Which source is speaking is worth a colour.
+    var accent: Color = Theme.live
+    var barWidth: CGFloat = 3.5
+    var gap: CGFloat = 3.5
+    var maxHeight: CGFloat = 20
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The icon's own proportions.
+    private let weights: [Double] = [0.34, 0.66, 1.0, 0.66, 0.34]
+    /// How tall the bars stand with nothing to hear. Below this the mark stops
+    /// looking like the logo; much above it, speech has nowhere to go.
+    private let rest: Double = 0.44
+
+    /// The loudest of the last few samples rather than the latest one. A
+    /// glyph this small sampled on single frames flickers; a short peak hold
+    /// reads as a voice.
+    private var level: Double {
+        let recent = history.suffix(4)
+        guard let peak = recent.max() else { return 0 }
+        return LevelScale.normalised(peak, in: history)
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !active || reduceMotion)) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: gap) {
+                ForEach(0..<weights.count, id: \.self) { index in
+                    Capsule()
+                        .fill(index == 2 ? accent : Theme.textPrimary)
+                        .frame(width: barWidth, height: height(index, phase))
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: accent)
+    }
+
+    private func height(_ index: Int, _ phase: TimeInterval) -> CGFloat {
+        let weight = weights[index]
+        let shaped = pow(min(1, max(0, level)), 0.6)
+        // Each bar leads or lags the others slightly, which is what separates
+        // a voice from a volume reading.
+        let wobble = (active && !reduceMotion)
+            ? 0.78 + 0.22 * sin(phase * 7.4 + Double(index) * 1.15)
+            : 1
+        let fraction = rest + (1 - rest) * shaped * wobble
+        return max(barWidth, CGFloat(weight * fraction) * maxHeight)
+    }
+}

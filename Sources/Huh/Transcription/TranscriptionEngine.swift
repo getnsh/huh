@@ -13,6 +13,16 @@ protocol TranscriptionEngine: AnyObject {
     /// Volatile, not-yet-final text. Delivered on the main queue.
     var onPartial: ((String) -> Void)? { get set }
 
+    /// A portion of the transcript the engine has committed to, delivered on
+    /// the main queue as soon as it settles.
+    ///
+    /// `onPartial` reports the whole utterance so far, which is what a
+    /// dictation overlay wants. A session that runs for an hour wants the
+    /// opposite: each piece once, as it is finalised, so it can be timestamped
+    /// and attributed rather than re-rendered. An engine without a notion of
+    /// partial finality may leave this unused.
+    var onFinalSegment: ((String) -> Void)? { get set }
+
     /// Progress during `prepare()`, delivered on the main queue.
     ///
     /// First run on a new machine may require a model download of substantial

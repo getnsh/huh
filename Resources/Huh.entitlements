@@ -17,5 +17,14 @@
     -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
+    <!--
+        System audio capture, for transcribing a meeting or a call alongside
+        your own voice. A Core Audio process tap rather than ScreenCaptureKit,
+        so this asks for audio and not for the ability to watch your screen.
+        Prompted for separately, the first time you use it, and the feature is
+        off until you turn it on.
+    -->
+    <key>com.apple.security.device.audio-capture</key>
+    <true/>
 </dict>
 </plist>

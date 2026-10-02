@@ -4,6 +4,60 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-10-02
+
+It can hear your Mac now, not just you. Hold the key over a video and the video
+is transcribed; leave it running through a call and both sides are, each into
+its own recogniser so every line knows who said it.
+
+### Added
+
+- **System audio capture.** *Your Mac as well as you* in Settings, off by
+  default, makes the push-to-talk key capture the microphone and whatever the
+  machine is playing, summed into one stream. Built on a Core Audio process tap
+  rather than ScreenCaptureKit, so the permission it asks for is audio
+  recording and not the ability to watch your screen. Playback is never muted.
+- **Live sessions.** Start one from the window, the menu bar or ⇧⌘M and leave
+  it running. You and the room go to separate recognisers, so the transcript
+  keeps the two apart, and the session lands in the library when you stop it,
+  ready to summarise.
+- **A panel that stays out of the way.** While a session runs it sits at the
+  edge of the screen as the product mark, moving to whoever is speaking and
+  tinted for which of you it is. Click it to open the whole session: both
+  waveforms, the transcript arriving as it is spoken, and the time. Drag it
+  anywhere, and it stays there.
+- **It notices when a call starts.** Core Audio knows which processes have the
+  microphone open, and a call is exactly that: another application listening.
+  One fact catches Google Meet or anything else in a browser tab, Slack
+  huddles, Zoom, Teams, FaceTime and Discord, with nothing to integrate per
+  application and nothing to maintain when any of them ships a new version.
+  Spotting a call needs no permission at all. A spotted call is offered, never
+  recorded: automatic capture is a setting, and it is off until you turn it on.
+- **The overlay answers the press.** A ring leaves the pill and the pill gives
+  under it, and with system audio on it widens into two labelled traces so a
+  flat line tells you the video is paused before the transcript does.
+
+### Changed
+
+- The entitlement set is two entries instead of one, both about audio:
+  `device.audio-input` for the microphone and `device.audio-capture` for the
+  Mac's own output. `SECURITY.md` and `PRIVACY.md` say what the second one
+  does and when it is asked for.
+- Levels are drawn against the loudest thing in the visible window rather than
+  against full scale. A microphone a foot from a mouth and a video at a third
+  of system volume differ by more than an order of magnitude, and a meter drawn
+  from the raw figure is pinned for one and flat for the other.
+- Which conferencing applications you use, and when, is no longer written to
+  the system log as public data.
+
+### Fixed
+
+- System audio levels were measured on the converted buffer, whose format is
+  whatever the engine asked for -- several of which are integer, for which
+  `floatChannelData` is nil. The level silently never arrived and both traces
+  sat flat while transcription worked perfectly. Measured on the tap's own
+  buffer now, as the microphone path always was.
+
 ## [0.3.1] — 2026-08-24
 
 A security release. Nothing user-facing changes except one refusal: dictation

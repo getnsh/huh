@@ -23,6 +23,8 @@ Everything else stays on the machine.
 | Data | Where it goes | Retention |
 |---|---|---|
 | Microphone audio | Held in memory, delivered to the on-device recogniser | Discarded when the utterance ends; never written to disk |
+| System audio, when enabled | Held in memory, delivered to the on-device recogniser | Discarded when the utterance or session ends; never written to disk |
+| Which applications are using audio | Read from Core Audio to notice a call starting; used in memory to name the session | Not stored, not transmitted |
 | Transcripts | `~/Library/Application Support/Huh/history.json` | Bounded to the most recent 500 entries |
 | Salvaged transcripts | `~/Library/Application Support/Huh/history.corrupt.json`, written only if `history.json` cannot be parsed | Removed when you delete or clear history |
 | Dictionary | `~/Library/Application Support/Huh/dictionary.json` | Until deleted |
@@ -38,7 +40,11 @@ Everything else stays on the machine.
 - No audio, transcript or dictionary content is transmitted by this application,
   by any engine, at any time. The one way your content reaches a third party is
   the hand-off described above, which you trigger and paste yourself.
-- No audio is ever uploaded, under any setting.
+- No audio is ever uploaded, under any setting. That includes system audio: a
+  captured call is transcribed on the machine that captured it.
+- Nothing is captured in the background on its own unless you turn automatic
+  meeting capture on. With it off, a detected call produces an offer and nothing
+  else.
 - No analytics, telemetry, crash reporting or update check.
 - No account, and no identifier of any kind is generated or stored.
 - The only outbound requests the application makes are the two optional model
@@ -73,10 +79,16 @@ grep -r PrivateCloudCompute Sources/
 | Permission | Requirement |
 |---|---|
 | Microphone | Capturing speech. Requested at first launch. |
+| Audio Recording | Capturing what the Mac is playing, for system audio and live sessions. Requested the first time one of those runs, and never otherwise. Granted through a Core Audio process tap rather than screen recording, so it covers sound and nothing visual. |
 | Speech Recognition | On-device transcription. Requested at first launch. |
 | Accessibility | Observing the global push-to-talk key, and inserting text into the focused application. Granted manually in System Settings. |
 
-Accessibility is the broadest of the three. It is required twice over: a
+Noticing that a call has started needs no permission and is not in this table.
+It reads Core Audio's list of processes and asks which of them has the microphone
+open; it sees no screen, no window titles and no browser tabs, and it reads no
+audio.
+
+Accessibility is the broadest of these. It is required twice over: a
 `CGEventTap` cannot observe the hotkey without it, and text cannot be inserted
 into another application without it. macOS offers no narrower grant.
 

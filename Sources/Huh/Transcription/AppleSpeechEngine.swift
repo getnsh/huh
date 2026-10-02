@@ -17,6 +17,7 @@ final class AppleSpeechEngine: TranscriptionEngine {
     let id: EngineID = .appleSpeech
     var onPartial: ((String) -> Void)?
     var onPreparationStatus: ((String) -> Void)?
+    var onFinalSegment: ((String) -> Void)?
     var contextualStrings: [String] = []
 
     private let requestedLocale: Locale
@@ -143,7 +144,13 @@ final class AppleSpeechEngine: TranscriptionEngine {
                 if result.isFinal {
                     finalized += result.text
                     let text = String(finalized.characters)
-                    await MainActor.run { [weak self] in self?.onPartial?(text) }
+                    let piece = String(result.text.characters)
+                    await MainActor.run { [weak self] in
+                        self?.onPartial?(text)
+                        if !piece.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            self?.onFinalSegment?(piece)
+                        }
+                    }
                 } else {
                     let preview = String((finalized + result.text).characters)
                     await MainActor.run { [weak self] in self?.onPartial?(preview) }

@@ -1,9 +1,9 @@
 import AVFoundation
 
-/// Captures microphone audio from the default input and delivers it to the
-/// active transcription engine in that engine's required format.
+/// Captures audio and delivers it to a transcription engine in that engine's
+/// required format.
 ///
-/// Two design decisions:
+/// Three design decisions:
 ///
 ///  * The audio graph starts on key-down and stops shortly after key-up, so the
 ///    system microphone indicator reflects actual capture. This costs roughly
@@ -11,7 +11,24 @@ import AVFoundation
 ///    consecutive utterances so that cost is paid once.
 ///  * Format conversion is performed here rather than in each engine, so an
 ///    engine declares `preferredFormat()` and receives exactly that.
+///  * What is being captured is a property of this object rather than a
+///    separate class per source. The microphone and the system tap arrive on
+///    different threads at different rates, but everything downstream of the
+///    conversion is identical, and duplicating it would mean maintaining two
+///    copies of the threading argument below.
 final class AudioCapture: @unchecked Sendable {
+
+    /// Where the audio comes from.
+    enum Source {
+        /// The default input device.
+        case microphone
+        /// Whatever the Mac is playing.
+        case systemAudio
+        /// Both, summed into one stream. Used for dictation, where the engine
+        /// takes a single input and the point is to transcribe a video and a
+        /// remark about it as one sentence.
+        case mixed
+    }
 
     /// Guards everything the render thread and the main thread both touch.
     ///
@@ -41,6 +58,20 @@ final class AudioCapture: @unchecked Sendable {
     /// Normalised RMS level (0...1), delivered on the main queue.
     var onLevel: ((Float) -> Void)?
 
+    /// The level of the system audio alone, when mixing. The interface shows
+    /// the two sources as separate traces, so a single summed level would make
+    /// a silent microphone look live whenever a video was playing.
+    var onSystemLevel: ((Float) -> Void)?
+
+    /// Which sources to capture. Set before `start`; changing it while running
+    /// has no effect until the next start.
+    var source: Source = .microphone
+
+    /// Reported when the system tap could not be started, which in practice
+    /// means the permission has not been granted. Dictation continues on the
+    /// microphone alone rather than failing outright.
+    var onSystemAudioUnavailable: ((Error) -> Void)?
+
     private let engine = AVAudioEngine()
     private var converter: AVAudioConverter?
     private var targetFormat: AVAudioFormat?
@@ -48,14 +79,36 @@ final class AudioCapture: @unchecked Sendable {
     private var shutdownWork: DispatchWorkItem?
     private var bufferCount = 0
 
+    // System audio.
+    private var hubToken: UUID?
+    private var systemConverter: AVAudioConverter?
+    private var systemBufferCount = 0
+    /// Half a second of 48 kHz mono. Sized as the drift budget, not as a
+    /// queue: see `SampleRing`.
+    private let systemRing = SampleRing(capacity: 24_000)
+
     /// How long the audio graph stays running after an utterance ends.
     var idleGrace: TimeInterval = 4.0
 
-    var isRunning: Bool { engine.isRunning }
+    var isRunning: Bool {
+        switch source {
+        case .microphone, .mixed: return engine.isRunning
+        case .systemAudio:        return hubToken != nil
+        }
+    }
 
     func start(targetFormat: AVAudioFormat) throws {
         shutdownWork?.cancel()
         shutdownWork = nil
+
+        if source == .systemAudio {
+            lock.lock()
+            self.targetFormat = targetFormat
+            bufferCount = 0
+            lock.unlock()
+            try startSystemAudio(targetFormat: targetFormat, mixing: false)
+            return
+        }
 
         let input = engine.inputNode
         let inputFormat = input.inputFormat(forBus: 0)
@@ -86,6 +139,18 @@ final class AudioCapture: @unchecked Sendable {
             try engine.start()
         }
         Log.audio.info("input device: \(inputFormat.sampleRate, privacy: .public) Hz, \(inputFormat.channelCount, privacy: .public) ch; engine running=\(self.engine.isRunning, privacy: .public)")
+
+        // The microphone is the stream that must work. A tap that cannot start
+        // is reported and skipped, never allowed to take dictation down with
+        // it.
+        if source == .mixed, hubToken == nil {
+            do {
+                try startSystemAudio(targetFormat: targetFormat, mixing: true)
+            } catch {
+                Log.audio.error("system audio unavailable: \(error.localizedDescription, privacy: .public)")
+                DispatchQueue.main.async { [weak self] in self?.onSystemAudioUnavailable?(error) }
+            }
+        }
     }
 
     /// Stops delivering buffers immediately and tears down the graph after
@@ -107,10 +172,75 @@ final class AudioCapture: @unchecked Sendable {
             isTapped = false
         }
         if engine.isRunning { engine.stop() }
+        stopSystemAudio()
         lock.lock()
         converter = nil
         targetFormat = nil
         lock.unlock()
+    }
+
+    // MARK: - System audio
+
+    private func startSystemAudio(targetFormat: AVAudioFormat, mixing: Bool) throws {
+        let hub = SystemAudioHub.shared
+        systemRing.reset()
+        systemBufferCount = 0
+
+        // The tap's format is only known once it exists, and it exists only
+        // once someone subscribes -- so the converter is built on the first
+        // buffer rather than here.
+        lock.lock(); systemConverter = nil; lock.unlock()
+
+        hubToken = try hub.subscribe { [weak self] buffer in
+            self?.ingestSystem(buffer, mixing: mixing)
+        }
+        Log.audio.info("system audio subscribed (mixing=\(mixing, privacy: .public))")
+    }
+
+    private func stopSystemAudio() {
+        if let hubToken {
+            SystemAudioHub.shared.unsubscribe(hubToken)
+            self.hubToken = nil
+        }
+        systemRing.reset()
+        lock.lock(); systemConverter = nil; lock.unlock()
+    }
+
+    /// The system tap's thread. Converts to the engine's format, then either
+    /// parks the samples for the microphone thread to mix in, or delivers them
+    /// as the stream in their own right.
+    private func ingestSystem(_ buffer: AVAudioPCMBuffer, mixing: Bool) {
+        lock.lock()
+        let target = targetFormat
+        var converter = systemConverter
+        systemBufferCount += 1
+        let count = systemBufferCount
+        let sink = _onBuffer
+        lock.unlock()
+        guard let target else { return }
+
+        if converter == nil {
+            guard let built = AVAudioConverter(from: buffer.format, to: target) else { return }
+            lock.lock(); systemConverter = built; lock.unlock()
+            converter = built
+            Log.audio.info("system audio: \(buffer.format.sampleRate, privacy: .public) Hz, \(buffer.format.channelCount, privacy: .public) ch -> \(target.sampleRate, privacy: .public) Hz")
+        }
+        // Measured on the tap's own buffer, not on the converted one.
+        //
+        // An engine's preferred format is whatever that engine wants, and
+        // several of them want integer samples -- for which `floatChannelData`
+        // is nil and the level silently never arrives. The microphone path has
+        // always measured its raw input for this reason; so does this one now.
+        publishLevel(for: buffer, count: count, system: mixing)
+
+        guard let converter, let out = convert(buffer, with: converter, to: target) else { return }
+
+        if mixing {
+            guard let samples = out.floatChannelData?[0] else { return }
+            systemRing.write(samples, count: Int(out.frameLength))
+        } else {
+            sink?(out)
+        }
     }
 
     // MARK: - Private
@@ -131,12 +261,20 @@ final class AudioCapture: @unchecked Sendable {
         if count == 1 || count % 100 == 0 {
             Log.audio.info("buffer #\(count, privacy: .public) frames=\(buffer.frameLength, privacy: .public)")
         }
-        publishLevel(for: buffer, count: count)
+        publishLevel(for: buffer, count: count, system: false)
         guard let converter, let targetFormat, let onBuffer else { return }
+        guard let out = convert(buffer, with: converter, to: targetFormat) else { return }
 
+        if source == .mixed { mixSystemAudio(into: out) }
+        onBuffer(out)
+    }
+
+    private func convert(_ buffer: AVAudioPCMBuffer,
+                         with converter: AVAudioConverter,
+                         to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let ratio = targetFormat.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1024
-        guard let out = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return }
+        guard let out = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
 
         var consumed = false
         var error: NSError?
@@ -150,11 +288,37 @@ final class AudioCapture: @unchecked Sendable {
             return buffer
         }
 
-        guard status != .error, out.frameLength > 0 else { return }
-        onBuffer(out)
+        guard status != .error, out.frameLength > 0 else { return nil }
+        return out
     }
 
-    private func publishLevel(for buffer: AVAudioPCMBuffer, count: Int) {
+    /// Sums the parked system samples into the microphone buffer in place.
+    ///
+    /// Summed, not averaged. Halving both would make a quiet room quieter for
+    /// no benefit; a recogniser cares about the shape of speech, and the only
+    /// thing that genuinely destroys it is clipping, so the sum is clamped
+    /// instead. A short read is silence, which is the correct answer when the
+    /// Mac is not playing anything.
+    private func mixSystemAudio(into out: AVAudioPCMBuffer) {
+        let frames = Int(out.frameLength)
+        guard frames > 0, let channels = out.floatChannelData else { return }
+
+        var scratch = [Float](repeating: 0, count: frames)
+        let read = scratch.withUnsafeMutableBufferPointer { pointer -> Int in
+            guard let base = pointer.baseAddress else { return 0 }
+            return systemRing.read(into: base, count: frames)
+        }
+        guard read > 0 else { return }
+
+        for channel in 0..<Int(out.format.channelCount) {
+            let destination = channels[channel]
+            for frame in 0..<read {
+                destination[frame] = max(-1, min(1, destination[frame] + scratch[frame]))
+            }
+        }
+    }
+
+    private func publishLevel(for buffer: AVAudioPCMBuffer, count: Int, system: Bool) {
         guard let channel = buffer.floatChannelData?[0] else { return }
         let frames = Int(buffer.frameLength)
         guard frames > 0 else { return }
@@ -163,10 +327,13 @@ final class AudioCapture: @unchecked Sendable {
         let rms = (sum / Float(max(1, frames / 8))).squareRoot()
         // Scaled so that quiet speech still produces visible movement.
         let level = min(1, max(0, rms * 8))
-        if count == 1 || count % 100 == 0 {
+        if !system, count == 1 || count % 100 == 0 {
             Log.audio.info("rms=\(rms, privacy: .public) level=\(level, privacy: .public)")
         }
-        DispatchQueue.main.async { [weak self] in self?.onLevel?(level) }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if system { self.onSystemLevel?(level) } else { self.onLevel?(level) }
+        }
     }
 }
 

@@ -9,6 +9,7 @@
 // program; if not, see <https://www.gnu.org/licenses/>.
 
 import AppKit
+import Combine
 import SwiftUI
 
 @main
@@ -26,7 +27,7 @@ struct HuhApp: App {
         .defaultSize(width: 820, height: 560)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
-        .commands { AppCommands(controller: controller, ui: ui) }
+        .commands { AppCommands(controller: controller, ui: ui, live: LiveSession.shared) }
 
         // Provides the standard ⌘, settings scene.
         Settings {
@@ -36,7 +37,7 @@ struct HuhApp: App {
         // Secondary surface: status and transport while another application
         // has focus.
         MenuBarExtra {
-            MenuBarContent(controller: controller)
+            MenuBarContent(controller: controller, live: LiveSession.shared)
         } label: {
             Image(systemName: controller.menuBarSymbol)
         }
@@ -46,6 +47,9 @@ struct HuhApp: App {
 private struct AppCommands: Commands {
     @ObservedObject var controller: DictationController
     @ObservedObject var ui: UIState
+    /// Observed, not read once: a menu item that says "Listen" while a
+    /// session is running is worse than no menu item.
+    @ObservedObject var live: LiveSession
 
     var body: some Commands {
         // The app has no document model, so New Item is removed.
@@ -56,6 +60,12 @@ private struct AppCommands: Commands {
                 controller.toggleFromUI()
             }
             .keyboardShortcut("r", modifiers: .command)
+
+            Button(live.isRunning ? "Stop Listening" : "Listen to This Meeting") {
+                live.toggle()
+            }
+            .disabled(live.isStopping)
+            .keyboardShortcut("m", modifiers: [.command, .shift])
 
             Button("Learn From Transcripts") {
                 AppWindows.showMain()
@@ -137,6 +147,8 @@ enum AppWindows {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hud: HUDController?
+    private var livePanel: LivePanelController?
+    private var panelVisibility: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Regular activation policy: Dock icon, app menu, standard window
@@ -164,6 +176,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hud = HUDController(controller: controller)
         self.hud = hud
         controller.bootstrap(hud: hud)
+
+        // The session decides when it is worth showing; the panel only
+        // animates. Keeping that split means the panel has no opinion about
+        // meetings and the session has none about windows.
+        let live = LiveSession.shared
+        let panel = LivePanelController(session: live)
+        livePanel = panel
+        panelVisibility = live.$isPanelVisible
+            .removeDuplicates()
+            .sink { visible in
+                Task { @MainActor in visible ? panel.show() : panel.hide() }
+            }
+        live.beginWatching()
 
         // `windowResizability` does not reliably enforce the content minimum,
         // allowing the layout to collapse. AppKit enforces it directly.

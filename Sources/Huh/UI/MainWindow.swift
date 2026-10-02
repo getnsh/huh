@@ -366,6 +366,7 @@ private struct LaunchAtLoginPrompt: View {
 private struct RecordBar: View {
     @ObservedObject private var controller = DictationController.shared
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var live = LiveSession.shared
 
     private var isLive: Bool {
         controller.state == .listening || controller.state == .starting
@@ -423,6 +424,24 @@ private struct RecordBar: View {
 
                 Credit()
             }
+
+            // Starting a session should not require a call to be detected
+            // first. The automatic path is a convenience on top of this
+            // button, not the only way in.
+            Button {
+                live.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: live.isRunning ? "stop.circle.fill" : "person.wave.2.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(live.isRunning ? "Stop Meeting" : "Start Meeting")
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(live.isStopping)
+            .help(live.isRunning
+                  ? "Stop transcribing and save the session"
+                  : "Transcribe you and your Mac until you stop it")
 
             Button {
                 controller.toggleFromUI()
