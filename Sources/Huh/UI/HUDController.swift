@@ -232,8 +232,8 @@ private struct HUDView: View {
                 .textCase(.uppercase)
                 .tracking(0.6)
                 .frame(width: 26, alignment: .leading)
-            VoiceTrace(history: history, active: isListening, barCount: 40, tint: tint)
-                .frame(height: 18)
+            VoiceTrace(history: history, active: isListening, tint: tint)
+                .frame(height: 22)
         }
     }
 

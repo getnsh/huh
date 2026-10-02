@@ -395,9 +395,19 @@ struct VoiceTrace: View {
 
     let history: [Float]
     let active: Bool
-    var barCount: Int = 44
     var tint: Color = Theme.live
-    var spacing: CGFloat = 2
+    /// Width of one bar, and the distance from one to the next.
+    ///
+    /// Fixed rather than derived from the available width. Dividing the width
+    /// across a fixed number of bars made each one as wide as the trace was
+    /// tall, and a bar that wide cannot be a thin line at rest -- it is a fat
+    /// dot that barely changes, because its own width is its floor. Fixing the
+    /// pitch and fitting as many bars as the space allows keeps the bar thin
+    /// at any size, which is what gives the movement somewhere to go.
+    var barWidth: CGFloat = 2.5
+    var pitch: CGFloat = 5
+    /// What a silent bar is, independent of how wide it is.
+    var minHeight: CGFloat = 2.5
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -405,14 +415,15 @@ struct VoiceTrace: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !active || reduceMotion)) { timeline in
             Canvas { context, size in
                 let phase = timeline.date.timeIntervalSinceReferenceDate
-                let barWidth = max(1.5, (size.width - spacing * CGFloat(barCount - 1)) / CGFloat(barCount))
+                let count = max(8, Int((size.width + pitch - barWidth) / pitch))
                 let middle = size.height / 2
+                let ceiling = size.height
 
                 var path = Path()
-                for index in 0..<barCount {
-                    let amount = amplitude(at: index, phase: phase)
-                    let height = max(barWidth, amount * size.height)
-                    let x = CGFloat(index) * (barWidth + spacing)
+                for index in 0..<count {
+                    let amount = amplitude(at: index, of: count, phase: phase)
+                    let height = max(minHeight, amount * ceiling)
+                    let x = CGFloat(index) * pitch
                     path.addRoundedRect(
                         in: CGRect(x: x, y: middle - height / 2, width: barWidth, height: height),
                         cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
@@ -420,7 +431,7 @@ struct VoiceTrace: View {
                 }
 
                 let shading = GraphicsContext.Shading.linearGradient(
-                    Gradient(colors: [tint.opacity(0.14), tint.opacity(0.55), tint]),
+                    Gradient(colors: [tint.opacity(0.18), tint.opacity(0.6), tint]),
                     startPoint: .zero,
                     endPoint: CGPoint(x: size.width, y: 0)
                 )
@@ -429,8 +440,8 @@ struct VoiceTrace: View {
                 // passages bloom and quiet ones do not.
                 if active && !reduceMotion {
                     var glow = context
-                    glow.addFilter(.blur(radius: 5))
-                    glow.opacity = 0.6
+                    glow.addFilter(.blur(radius: 4))
+                    glow.opacity = 0.5
                     glow.fill(path, with: shading)
                 }
                 context.opacity = active ? 1 : 0.35
@@ -439,18 +450,28 @@ struct VoiceTrace: View {
         }
     }
 
-    private func amplitude(at index: Int, phase: TimeInterval) -> Double {
-        let offset = index - (barCount - history.count)
-        let level = (offset >= 0 && offset < history.count)
-            ? LevelScale.normalised(history[offset], in: history)
-            : 0
-        // Compress the upper range so loud speech does not saturate the trace.
-        let shaped = pow(min(1, level), 0.65)
+    /// The level at one bar, with the history stretched across however many
+    /// bars fit. Interpolated rather than nearest-sampled: repeating a sample
+    /// across neighbouring bars makes the trace look stepped, and the whole
+    /// point of the thing is that it moves smoothly.
+    private func amplitude(at index: Int, of count: Int, phase: TimeInterval) -> Double {
+        guard !history.isEmpty else { return 0 }
+        let position = count > 1 ? Double(index) / Double(count - 1) : 1
+        let exact = position * Double(history.count - 1)
+        let lower = Int(exact.rounded(.down))
+        let upper = min(history.count - 1, lower + 1)
+        let fraction = exact - Double(lower)
+        let value = Float(Double(history[lower]) * (1 - fraction) + Double(history[upper]) * fraction)
+
+        let level = LevelScale.normalised(value, in: history)
+        // Mild compression only. The trace is read at a glance, and flattening
+        // the loud end is what made every bar look alike.
+        let shaped = pow(min(1, level), 0.8)
         // A flat line reads as broken rather than as silence.
         let idle = (active && !reduceMotion)
-            ? 0.045 * (0.5 + 0.5 * sin(phase * 2.6 + Double(index) * 0.5))
+            ? 0.03 * (0.5 + 0.5 * sin(phase * 2.6 + Double(index) * 0.35))
             : 0
-        return min(1, shaped * 0.92 + idle)
+        return min(1, shaped * 0.95 + idle)
     }
 }
 

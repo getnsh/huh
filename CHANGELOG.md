@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-10-02
+
+### Fixed
+
+- **The live waveform was a row of fat dots that barely moved.** Bar width was
+  derived by dividing the available width across a fixed number of bars, and
+  the resting height of a bar was its own width -- so a wide trace produced
+  bars as wide as the trace was tall, which cannot be a thin line at rest and
+  has almost nowhere to travel when someone speaks. The pitch is fixed now and
+  as many bars as fit are drawn, with a resting height that has nothing to do
+  with how wide they are. The history is interpolated across however many bars
+  there is room for rather than repeated, so the trace moves smoothly instead
+  of in steps, and the upper range is compressed less, so loud and quiet no
+  longer look alike.
+
 ## [0.4.0] — 2026-10-02
 
 It can hear your Mac now, not just you. Hold the key over a video and the video
