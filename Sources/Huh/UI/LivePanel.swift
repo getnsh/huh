@@ -325,16 +325,20 @@ private struct CollapsedMark: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .background {
+                // Flat and opaque. A blur material picks up whatever is
+                // behind it, and a wide soft shadow spreads a halo out from
+                // the edge; against a light window the two together read as a
+                // smudge around the mark rather than as something resting on
+                // top of one.
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay { Capsule().fill(Theme.base.opacity(0.62)) }
+                    .fill(Theme.raised)
                     .overlay {
                         Capsule().strokeBorder(
                             hovering ? Theme.hover : Theme.border,
                             lineWidth: 1
                         )
                     }
-                    .shadow(color: .black.opacity(0.5), radius: 18, y: 7)
+                    .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
             }
             .scaleEffect(hovering ? 1.045 : 1)
             .contentShape(Capsule())

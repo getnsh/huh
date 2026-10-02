@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] — 2026-10-02
+
+### Changed
+
+- The collapsed mark is a flat, opaque capsule with a tight shadow. The blur
+  material it used picked up whatever sat behind it, and the wide soft shadow
+  spread a halo out from its edge, which against a light window read as a
+  smudge around the mark rather than as something resting on top of it.
+
 ## [0.4.2] — 2026-10-02
 
 ### Changed
