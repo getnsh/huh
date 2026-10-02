@@ -138,11 +138,9 @@ private struct HUDView: View {
         .background {
             let shape = RoundedRectangle(cornerRadius: Theme.radiusPanel + 6, style: .continuous)
             shape
-                .fill(.ultraThinMaterial)
-                .overlay { shape.fill(Theme.base.opacity(0.55)) }
-                .overlay { shape.strokeBorder(borderTint, lineWidth: 1) }
-                .shadow(color: .black.opacity(0.45), radius: 26, y: 10)
-                .shadow(color: Theme.live.opacity(isListening ? 0.16 : 0), radius: 20)
+                .fill(Theme.surface)
+                .overlay { shape.strokeBorder(Theme.border, lineWidth: 1) }
+                .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
         }
         // The press itself is the one moment the overlay is certainly being
         // looked at, so it gets a mark of its own: a ring leaving the pill,
@@ -235,11 +233,6 @@ private struct HUDView: View {
             VoiceTrace(history: history, active: isListening, tint: tint)
                 .frame(height: 22)
         }
-    }
-
-    private var borderTint: Color {
-        if controller.confirmation != nil { return Theme.live.opacity(0.45) }
-        return isListening ? Theme.live.opacity(0.38) : Theme.border
     }
 
     private var caption: String {

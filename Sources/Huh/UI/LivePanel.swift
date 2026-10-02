@@ -678,10 +678,9 @@ private extension View {
             .background {
                 let shape = RoundedRectangle(cornerRadius: Theme.radiusPanel + 4, style: .continuous)
                 shape
-                    .fill(.ultraThinMaterial)
-                    .overlay { shape.fill(Theme.base.opacity(0.62)) }
+                    .fill(Theme.surface)
                     .overlay { shape.strokeBorder(Theme.border, lineWidth: 1) }
-                    .shadow(color: .black.opacity(0.5), radius: 30, y: 12)
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
             }
             .animation(Theme.quick, value: glowing)
     }

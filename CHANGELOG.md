@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] — 2026-10-02
+
+### Changed
+
+- The session panel and the dictation overlay are flat and opaque, with a
+  tight shadow, the same as the collapsed mark in 0.4.3. Both were a blur
+  material under a wide soft shadow, which against a light window wrapped them
+  in a grey halo instead of letting them sit on top of it.
+
 ## [0.4.3] — 2026-10-02
 
 ### Changed
