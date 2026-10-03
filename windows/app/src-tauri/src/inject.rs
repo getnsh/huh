@@ -315,13 +315,15 @@ mod platform {
 
     /// Leaves `text` on the clipboard, for a person to paste themselves.
     pub fn copy(text: &str) -> Result<(), String> {
-        clipboard::write(text)
+        clipboard::write(text, false)
     }
 
     mod clipboard {
+        use windows::core::w;
         use windows::Win32::Foundation::{HANDLE, HGLOBAL};
         use windows::Win32::System::DataExchange::{
-            CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard, SetClipboardData,
+            CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard,
+            RegisterClipboardFormatW, SetClipboardData,
         };
         use windows::Win32::System::Memory::{
             GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE,
@@ -340,12 +342,12 @@ mod platform {
             F: FnOnce() -> Result<(), String>,
         {
             let previous = read();
-            write(text)?;
+            write(text, true)?;
             let result = body();
             // Give the target a moment to read it, then restore.
             std::thread::sleep(std::time::Duration::from_millis(120));
             if let Some(previous) = previous {
-                let _ = write(&previous);
+                let _ = write(&previous, true);
             }
             result
         }
@@ -373,7 +375,12 @@ mod platform {
             }
         }
 
-        pub fn write(text: &str) -> Result<(), String> {
+        /// Puts `text` on the clipboard. `passing` is for text that is only
+        /// there to be pasted, and for what is put back afterwards: it is
+        /// marked so Windows keeps it out of clipboard history and off other
+        /// devices, and clipboard managers leave it alone. A copy someone asked
+        /// for is left unmarked, as theirs to keep.
+        pub fn write(text: &str, passing: bool) -> Result<(), String> {
             unsafe {
                 OpenClipboard(None).map_err(|e| e.to_string())?;
                 EmptyClipboard().map_err(|e| e.to_string())?;
@@ -386,9 +393,36 @@ mod platform {
                 let _ = GlobalUnlock(global);
                 SetClipboardData(CF_UNICODETEXT.0 as u32, HANDLE(global.0))
                     .map_err(|e| e.to_string())?;
+                if passing {
+                    for marker in [
+                        w!("ExcludeClipboardContentFromMonitorProcessing"),
+                        w!("CanIncludeInClipboardHistory"),
+                        w!("CanUploadToCloudClipboard"),
+                    ] {
+                        mark(marker);
+                    }
+                }
                 let _ = CloseClipboard();
                 Ok(())
             }
+        }
+
+        /// Sets one of Windows' clipboard markers to zero: "no".
+        unsafe fn mark(name: windows::core::PCWSTR) {
+            let format = RegisterClipboardFormatW(name);
+            if format == 0 {
+                return;
+            }
+            let Ok(global) = GlobalAlloc(GMEM_MOVEABLE, std::mem::size_of::<u32>()) else {
+                return;
+            };
+            let pointer = GlobalLock(global) as *mut u32;
+            if pointer.is_null() {
+                return;
+            }
+            *pointer = 0;
+            let _ = GlobalUnlock(global);
+            let _ = SetClipboardData(format, HANDLE(global.0));
         }
     }
 }
