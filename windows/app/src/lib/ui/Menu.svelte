@@ -10,6 +10,7 @@
      The Mac uses its native menus, which match a dark Mac; Windows' own
      menus follow the system theme, so they would arrive light in a dark app.
      Escape or a click elsewhere closes it; arrow keys and Return work. */
+  import { untrack } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Icon from "./Icon.svelte";
 
@@ -24,9 +25,18 @@
   let { items, x, y, onclose }: Props = $props();
 
   let panel: HTMLDivElement | undefined = $state(undefined);
+  let submenu: HTMLDivElement | undefined = $state(undefined);
   let open: number | null = $state(null);
   let left = $state(0);
   let top = $state(0);
+  /* A submenu opens to the right, as the Mac's do, unless that would carry it
+     out of the window, which a webview cannot draw beyond: then to the left,
+     and lifted when it would run off the bottom. The share menu sits against
+     the window's right edge, so for it the left is the usual side. */
+  let flip = $state(false);
+  let lift = $state(0);
+  /* Level with the item that opened it, as the Mac's are. */
+  let anchor = $state(0);
 
   // Kept inside the window: flipped up or left when it would run off it.
   $effect(() => {
@@ -34,6 +44,19 @@
     const rect = panel.getBoundingClientRect();
     left = Math.min(x, window.innerWidth - rect.width - 8);
     top = y + rect.height > window.innerHeight - 8 ? Math.max(8, y - rect.height - 30) : y;
+  });
+
+  $effect(() => {
+    if (!submenu || !panel) {
+      flip = false;
+      lift = 0;
+      return;
+    }
+    const menu = panel.getBoundingClientRect();
+    const own = submenu.getBoundingClientRect();
+    flip = menu.right - 4 + own.width > window.innerWidth - 8;
+    // Measured where it would sit unlifted, so lifting it never moves the goal.
+    lift = Math.max(0, own.bottom + untrack(() => lift) - (window.innerHeight - 8));
   });
 
   function choose(item: MenuItem) {
@@ -73,13 +96,22 @@
         role="menuitem"
         disabled={item.disabled}
         onclick={() => choose(item)}
-        onpointerenter={() => (open = item.children ? index : null)}
+        onpointerenter={(event) => {
+          open = item.children ? index : null;
+          anchor = event.currentTarget.offsetTop;
+        }}
       >
         <span>{item.label}</span>
         {#if item.children}<Icon of={ChevronRight} size={9} weight="semibold" />{/if}
       </button>
       {#if item.children && open === index}
-        <div class="submenu" role="menu">
+        <div
+          class="submenu"
+          class:flip
+          role="menu"
+          bind:this={submenu}
+          style:top="{anchor - 4 - lift}px"
+        >
           {#each item.children as child}
             {#if child === "separator"}
               <div class="separator"></div>
@@ -122,7 +154,11 @@
   .submenu {
     position: absolute;
     left: calc(100% - 4px);
-    margin-top: -4px;
+  }
+
+  .submenu.flip {
+    left: auto;
+    right: calc(100% - 4px);
   }
 
   .item {
