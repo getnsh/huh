@@ -65,6 +65,29 @@ pub fn publish(handle: &AppHandle, app: &Shared, history: bool) {
     learning::refresh_soon(handle, app);
 }
 
+/// Notices dictionary.json and people.json being edited outside the app, in
+/// a text editor say, and shows the edit, as the Mac's file watchers do. Once
+/// a second is soon enough for a person switching back from an editor, and
+/// cheap: it asks the file system two dates.
+pub fn watch(handle: &AppHandle, app: &Shared) {
+    let handle = handle.clone();
+    let app = app.clone();
+    let _ = std::thread::Builder::new()
+        .name("huh-file-watch".into())
+        .spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let changed = app.library.lock().reread();
+            if changed.dictionary || changed.people {
+                tracing::info!(
+                    dictionary = changed.dictionary,
+                    people = changed.people,
+                    "edited outside the app; read again"
+                );
+                publish(&handle, &app, false);
+            }
+        });
+}
+
 type Done = Result<(), String>;
 
 #[tauri::command]

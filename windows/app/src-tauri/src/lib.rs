@@ -259,6 +259,7 @@ pub fn run() {
             });
 
             learning::start(&handle, &shared);
+            book::watch(&handle, &shared);
             summary::start(&handle, &shared);
             system::watch_input(&handle);
             session::start_watching(&handle, &shared);

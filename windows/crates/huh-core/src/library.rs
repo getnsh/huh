@@ -39,6 +39,33 @@ pub struct Library {
     pub ledger_error: Option<String>,
     /// What the last new correction did to the history, shown once.
     pub retro_note: Option<String>,
+    /// How dictionary.json and people.json stood when this library last read
+    /// or wrote them, so an edit made by anything else can be told apart.
+    dictionary_stamp: Option<Stamp>,
+    people_stamp: Option<Stamp>,
+}
+
+/// When a file was last written, as the file system reports it, and its
+/// length: two different writes all but never share both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Stamp {
+    modified: std::time::SystemTime,
+    bytes: u64,
+}
+
+fn stamp(path: &std::path::Path) -> Option<Stamp> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some(Stamp {
+        modified: meta.modified().ok()?,
+        bytes: meta.len(),
+    })
+}
+
+/// Which files `Library::reread` read again.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Reread {
+    pub dictionary: bool,
+    pub people: bool,
 }
 
 fn plural(n: usize, one: &str, many: &str) -> String {
@@ -94,6 +121,8 @@ impl Library {
             history_error: None,
             ledger_error: None,
             retro_note: None,
+            dictionary_stamp: None,
+            people_stamp: None,
         };
 
         match store::load::<DictionaryFile>(&library.stores.dictionary_path()) {
@@ -114,6 +143,9 @@ impl Library {
                 library.people_error = Some(format!("people.json couldn't be read: {why}"))
             }
         }
+
+        library.dictionary_stamp = stamp(&library.stores.dictionary_path());
+        library.people_stamp = stamp(&library.stores.people_path());
 
         match store::load::<Vec<Transcript>>(&library.stores.history_path()) {
             Loaded::Read(history) => library.history = history,
@@ -147,6 +179,7 @@ impl Library {
         if let Err(error) = store::write_json(&self.stores.dictionary_path(), &self.dictionary) {
             self.dictionary_error = Some(format!("Couldn't save dictionary.json: {error}"));
         }
+        self.dictionary_stamp = stamp(&self.stores.dictionary_path());
     }
 
     fn save_people(&mut self) {
@@ -156,6 +189,54 @@ impl Library {
         if let Err(error) = store::write_json(&self.stores.people_path(), &self.people) {
             self.people_error = Some(format!("Couldn't save people.json: {error}"));
         }
+        self.people_stamp = stamp(&self.stores.people_path());
+    }
+
+    /* ── Edits made outside the app ── */
+
+    /// Reads again whichever of dictionary.json and people.json something
+    /// other than this library has changed since it last read or wrote it, as
+    /// the Mac does when one is edited in a text editor.
+    ///
+    /// A file caught half-written reads as unreadable, which stops the app
+    /// writing over it until the editor finishes and it is read again whole.
+    pub fn reread(&mut self) -> Reread {
+        let mut changed = Reread::default();
+
+        let path = self.stores.dictionary_path();
+        let now = stamp(&path);
+        if now.is_some() && now != self.dictionary_stamp {
+            self.dictionary_stamp = now;
+            changed.dictionary = true;
+            match store::load::<DictionaryFile>(&path) {
+                Loaded::Read(file) => {
+                    self.dictionary = file;
+                    self.dictionary_error = None;
+                }
+                Loaded::Corrupt(why) => {
+                    self.dictionary_error = Some(format!("dictionary.json couldn't be read: {why}"))
+                }
+                Loaded::Missing => changed.dictionary = false,
+            }
+        }
+
+        let path = self.stores.people_path();
+        let now = stamp(&path);
+        if now.is_some() && now != self.people_stamp {
+            self.people_stamp = now;
+            changed.people = true;
+            match store::load::<PeopleFile>(&path) {
+                Loaded::Read(file) => {
+                    self.people = file;
+                    self.people_error = None;
+                }
+                Loaded::Corrupt(why) => {
+                    self.people_error = Some(format!("people.json couldn't be read: {why}"))
+                }
+                Loaded::Missing => changed.people = false,
+            }
+        }
+        changed
     }
 
     fn save_history(&mut self) {
@@ -685,6 +766,40 @@ mod tests {
 
     fn cleanup(library: &Library) {
         let _ = std::fs::remove_dir_all(&library.stores.root);
+    }
+
+    #[test]
+    fn an_edit_made_elsewhere_is_read_and_the_libraries_own_writes_are_not() {
+        let mut library = scratch();
+        // Its own write: nothing to read again.
+        library.add_term("Terraform", "");
+        assert_eq!(library.reread(), Reread::default());
+
+        // A text editor's: a term added by hand, and the file one byte longer
+        // than anything this library wrote.
+        let path = library.stores.dictionary_path();
+        let mut file = store::load::<DictionaryFile>(&path);
+        let Loaded::Read(ref mut edited) = file else {
+            panic!("the dictionary should read");
+        };
+        edited.terms.push(VocabularyTerm {
+            enabled: true,
+            id: Uuid::new_v4(),
+            note: "typed in by hand".into(),
+            text: "Pulumi".into(),
+        });
+        store::write_json(&path, edited).unwrap();
+        let changed = library.reread();
+        assert!(changed.dictionary && !changed.people);
+        assert!(library.dictionary.terms.iter().any(|t| t.text == "Pulumi"));
+
+        // Half-written: refused, and nothing written over it until it reads.
+        std::fs::write(&path, "{ \"terms\": [").unwrap();
+        assert!(library.reread().dictionary);
+        assert!(library.dictionary_error.is_some());
+        library.add_term("Ansible", "");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ \"terms\": [");
+        cleanup(&library);
     }
 
     #[test]
