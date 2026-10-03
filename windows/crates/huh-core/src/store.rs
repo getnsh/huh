@@ -12,7 +12,9 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::model::{CorrectionPair, DictionaryFile, PeopleFile, Transcript, VocabularyTerm};
+use crate::model::{
+    AppliedCorrection, CorrectionPair, DictionaryFile, PeopleFile, Transcript, VocabularyTerm,
+};
 use crate::settings::Settings;
 
 /// The folder every file lives in.
@@ -191,5 +193,84 @@ impl Stores {
         let mut history = self.history();
         history.insert(0, transcript);
         self.save_history(&history)
+    }
+
+    /// Counts each correction that fired against the rule it came from, so the
+    /// dictionary can show which entries are earning their place.
+    ///
+    /// Matched on the trigger, ignoring case, as the Mac's
+    /// `DictionaryStore.recordHits` matches. A rule derived from a person's
+    /// alias lives in `people.json` and keeps no count, so it is not looked for,
+    /// and nothing is written when no rule in the dictionary fired.
+    pub fn record_hits(&self, applied: &[AppliedCorrection]) -> io::Result<()> {
+        if applied.is_empty() {
+            return Ok(());
+        }
+        let mut file = self.dictionary();
+        let mut changed = false;
+        for hit in applied {
+            let trigger = hit.hear.to_lowercase();
+            if let Some(pair) = file
+                .corrections
+                .iter_mut()
+                .find(|pair| pair.hear.to_lowercase() == trigger)
+            {
+                pair.hit_count += 1;
+                changed = true;
+            }
+        }
+        if changed {
+            self.save_dictionary(&file)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch() -> Stores {
+        Stores::new(std::env::temp_dir().join(format!("huh-store-{}", uuid::Uuid::new_v4())))
+    }
+
+    fn fired(hear: &str) -> AppliedCorrection {
+        AppliedCorrection {
+            hear: hear.into(),
+            id: uuid::Uuid::new_v4(),
+            matched: hear.into(),
+            write: String::new(),
+        }
+    }
+
+    #[test]
+    fn a_rule_that_fires_is_counted_whatever_its_case() {
+        let stores = scratch();
+        stores.add_correction("terra form", "Terraform").unwrap();
+        stores.add_correction("jason", "JSON").unwrap();
+        stores
+            .record_hits(&[fired("Terra Form"), fired("terra form")])
+            .unwrap();
+        let counts: Vec<(String, u32)> = stores
+            .dictionary()
+            .corrections
+            .into_iter()
+            .map(|pair| (pair.hear, pair.hit_count))
+            .collect();
+        let _ = fs::remove_dir_all(&stores.root);
+        assert_eq!(
+            counts,
+            vec![("terra form".to_string(), 2), ("jason".to_string(), 0)]
+        );
+    }
+
+    #[test]
+    fn a_hit_from_an_alias_writes_nothing() {
+        let stores = scratch();
+        stores.record_hits(&[fired("geetansh")]).unwrap();
+        let written = stores.dictionary_path().exists();
+        let _ = fs::remove_dir_all(&stores.root);
+        assert!(!written);
     }
 }

@@ -24,11 +24,24 @@
 use std::sync::OnceLock;
 
 use crossbeam_channel::{unbounded, Sender};
+use huh_core::settings::HotKey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
     Down,
     Up,
+}
+
+/// The virtual-key code a low-level hook reports for each choice. Left and
+/// right are told apart there: the hook sees `VK_RCONTROL`, never `VK_CONTROL`.
+pub fn virtual_key(key: HotKey) -> u16 {
+    match key {
+        HotKey::RightControl => 0xA3, // VK_RCONTROL
+        HotKey::LeftControl => 0xA2,  // VK_LCONTROL
+        HotKey::RightShift => 0xA1,   // VK_RSHIFT
+        HotKey::RightAlt => 0xA5,     // VK_RMENU
+        HotKey::CapsLock => 0x14,     // VK_CAPITAL
+    }
 }
 
 static SENDER: OnceLock<Sender<Event>> = OnceLock::new();
@@ -166,3 +179,20 @@ mod platform {
 }
 
 pub use platform::set_key;
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        VK_CAPITAL, VK_LCONTROL, VK_RCONTROL, VK_RMENU, VK_RSHIFT,
+    };
+
+    #[test]
+    fn each_choice_is_the_key_windows_reports() {
+        assert_eq!(virtual_key(HotKey::RightControl), VK_RCONTROL.0);
+        assert_eq!(virtual_key(HotKey::LeftControl), VK_LCONTROL.0);
+        assert_eq!(virtual_key(HotKey::RightShift), VK_RSHIFT.0);
+        assert_eq!(virtual_key(HotKey::RightAlt), VK_RMENU.0);
+        assert_eq!(virtual_key(HotKey::CapsLock), VK_CAPITAL.0);
+    }
+}

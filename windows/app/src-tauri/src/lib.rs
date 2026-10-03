@@ -5,10 +5,14 @@
 //! only draws and sends commands. A busy interface can then never delay a
 //! keypress or a paste, which on a push-to-talk app is the whole game.
 pub mod audio;
+pub mod controller;
 pub mod dictation;
 pub mod hotkey;
 pub mod inject;
+pub mod overlay;
+pub mod speech;
 
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -22,6 +26,11 @@ pub struct App {
     pub stores: Stores,
     pub settings: RwLock<Settings>,
     pub dictation: dictation::Machine,
+    pub recorder: audio::Recorder,
+    pub recogniser: speech::Recogniser,
+    /// Counts utterances, so work started for one can tell it has been
+    /// overtaken by the next.
+    pub utterances: AtomicU64,
 }
 
 impl App {
@@ -32,6 +41,9 @@ impl App {
             stores,
             settings: RwLock::new(settings),
             dictation: dictation::Machine::new(),
+            recorder: audio::Recorder::new(),
+            recogniser: speech::Recogniser::new(),
+            utterances: AtomicU64::new(0),
         }
     }
 }
@@ -48,6 +60,7 @@ fn set_settings(app: tauri::State<'_, Shared>, settings: Settings) -> Result<(),
     app.stores
         .save_settings(&settings)
         .map_err(|e| e.to_string())?;
+    hotkey::set_key(hotkey::virtual_key(settings.hotkey));
     *app.settings.write() = settings;
     Ok(())
 }
@@ -96,19 +109,29 @@ fn state(app: tauri::State<'_, Shared>) -> dictation::State {
     app.dictation.state()
 }
 
-/// Starts and stops from the window or the tray, independently of the key.
 #[tauri::command]
-fn toggle_dictation(app: tauri::State<'_, Shared>, window: tauri::Window) -> Result<(), String> {
-    let _ = window;
-    app.dictation.toggle();
-    Ok(())
+fn engine_status(app: tauri::State<'_, Shared>) -> speech::Status {
+    app.recogniser.status()
+}
+
+/// Starts and stops from the window or the tray, independently of the key.
+///
+/// On a thread of its own: a synchronous command runs on the interface's
+/// thread, and opening a microphone takes long enough to be seen there.
+#[tauri::command]
+fn toggle_dictation(app: tauri::State<'_, Shared>, handle: tauri::AppHandle) {
+    let app = app.inner().clone();
+    std::thread::spawn(move || controller::toggle(&handle, &app));
 }
 
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
+            // Both names: the binary is `huh`, but everything it runs is in
+            // the library crate, `huh_lib`, and a filter on one is silent
+            // about the other.
             tracing_subscriber::EnvFilter::try_from_env("HUH_LOG")
-                .unwrap_or_else(|_| "huh=info".into()),
+                .unwrap_or_else(|_| "huh=info,huh_lib=info".into()),
         )
         .init();
 
@@ -132,6 +155,7 @@ pub fn run() {
             get_history,
             preview_corrections,
             state,
+            engine_status,
             toggle_dictation,
         ])
         .setup(move |app| {
@@ -142,23 +166,22 @@ pub fn run() {
             // shows a window that is already there.
             if let Some(hud) = app.get_webview_window("hud") {
                 let _ = hud.hide();
-                inject::make_overlay_click_through(&hud);
             }
-
             let handle = app.handle().clone();
+            overlay::prepare(&handle);
+
+            // The model loads now, long before the first press needs it, and
+            // on a first launch this is where it is downloaded.
+            let events = handle.clone();
+            shared.recogniser.prepare(move |status| {
+                let _ = events.emit("engine", status);
+            });
+
+            hotkey::set_key(hotkey::virtual_key(shared.settings.read().hotkey));
             let shared = shared.clone();
-            hotkey::listen(move |event| {
-                let machine = &shared.dictation;
-                match event {
-                    hotkey::Event::Down => machine.press(),
-                    // The release says whether the utterance was long enough
-                    // to transcribe; the state it leaves behind is what the
-                    // interface reads, so nothing is needed from it here.
-                    hotkey::Event::Up => {
-                        let _ = machine.release();
-                    }
-                }
-                let _ = handle.emit("dictation", machine.state());
+            hotkey::listen(move |event| match event {
+                hotkey::Event::Down => controller::key_down(&handle, &shared),
+                hotkey::Event::Up => controller::key_up(&handle, &shared),
             });
             Ok(())
         })

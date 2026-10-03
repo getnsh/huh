@@ -8,10 +8,13 @@
 
   type Section = "transcripts" | "dictionary";
   type State = { kind: string; message?: string };
+  /* The recogniser: downloading on a first launch, then loading, then ready. */
+  type Engine = { kind: string; percent?: number; message?: string };
   type Transcript = { id: string; text: string; engine: string };
 
   let section: Section = $state("transcripts");
   let phase = $state({ kind: "idle" } as State);
+  let engine = $state({ kind: "waiting" } as Engine);
   let history: number[] = $state([]);
   let transcripts: Transcript[] = $state([]);
 
@@ -21,19 +24,31 @@
     invoke<Transcript[]>("get_history")
       .then((value) => (transcripts = value))
       .catch(() => {});
+    invoke<Engine>("engine_status")
+      .then((value) => (engine = value))
+      .catch(() => {});
     const stops = [
       listen<State>("dictation", (event) => (phase = event.payload)),
+      listen<Engine>("engine", (event) => (engine = event.payload)),
       listen<number[]>("levels", (event) => (history = event.payload)),
+      listen<Transcript>("transcript", (event) => (transcripts = [event.payload, ...transcripts])),
     ];
     return () => stops.forEach((stop) => stop.then((off) => off()));
   });
 
+  /* Dictation speaks first; when nothing is happening, the recogniser says
+     what it is doing, in the Mac's words. */
   const status = $derived.by(() => {
     switch (phase.kind) {
       case "starting": return "Starting…";
       case "listening": return "Listening";
       case "transcribing": return "Transcribing…";
       case "failed": return phase.message ?? "Something went wrong";
+    }
+    switch (engine.kind) {
+      case "downloading": return `Downloading Parakeet models… ${engine.percent ?? 0}%`;
+      case "loading": return "Preparing Parakeet…";
+      case "failed": return engine.message ?? "Parakeet is unavailable";
       default: return "Ready";
     }
   });

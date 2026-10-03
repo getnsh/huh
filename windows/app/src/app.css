@@ -19,7 +19,10 @@ body {
   overflow: hidden;
 }
 
-/* The overlay draws its own shape on nothing at all. */
+/* The overlay draws its own shape on nothing at all. The root as well as the
+   body: the root's background is what fills the window's canvas, so clearing
+   the body alone leaves the whole overlay window painted in the base grey. */
+html:has(body.overlay),
 body.overlay {
   background: transparent;
 }

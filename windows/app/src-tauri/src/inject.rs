@@ -65,21 +65,22 @@ impl Outcome {
 
 pub fn insert(text: &str, always_paste: bool) -> Outcome {
     if text.is_empty() {
-        return Outcome::refused("Nothing heard.");
+        return Outcome::nothing_heard();
     }
     platform::insert(text, always_paste || text.chars().count() > PASTE_THRESHOLD)
 }
 
-/// Makes the overlay a window that can never take focus or a click.
-pub fn make_overlay_click_through(window: &tauri::WebviewWindow) {
-    platform::make_overlay_click_through(window);
+impl Outcome {
+    /// An utterance the recogniser found no words in.
+    pub fn nothing_heard() -> Self {
+        Self::refused("Nothing heard.")
+    }
 }
 
 #[cfg(windows)]
 mod platform {
     use super::Outcome;
     use windows::core::BSTR;
-    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
     };
@@ -89,10 +90,6 @@ mod platform {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
         VIRTUAL_KEY, VK_CONTROL, VK_V,
-    };
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-        WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
     };
 
     /// What has focus, and whether we are allowed to write into it.
@@ -290,25 +287,6 @@ mod platform {
             }
         }
     }
-
-    pub fn make_overlay_click_through(window: &tauri::WebviewWindow) {
-        let Ok(handle) = window.hwnd() else { return };
-        let hwnd = HWND(handle.0);
-        unsafe {
-            let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
-            // NOACTIVATE so a press never steals focus from the app being
-            // dictated into -- it has to stay frontmost for the text to have
-            // anywhere to land. TOOLWINDOW keeps it out of Alt-Tab, and
-            // TRANSPARENT lets clicks fall through to whatever is underneath.
-            let wanted = current
-                | WS_EX_NOACTIVATE.0
-                | WS_EX_TOOLWINDOW.0
-                | WS_EX_TRANSPARENT.0
-                | WS_EX_LAYERED.0;
-            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, wanted as isize);
-        }
-        let _ = (WPARAM(0), LPARAM(0));
-    }
 }
 
 #[cfg(not(windows))]
@@ -326,6 +304,4 @@ mod platform {
             delivered: false,
         }
     }
-
-    pub fn make_overlay_click_through(_window: &tauri::WebviewWindow) {}
 }
