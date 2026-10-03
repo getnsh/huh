@@ -1,0 +1,38 @@
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--base);
+  color: var(--text-primary);
+  font: var(--body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* A desktop window is not a web page: nothing here is selectable text until
+     a view says it is, and nothing rubber-bands. */
+  user-select: none;
+  overflow: hidden;
+}
+
+/* The overlay draws its own shape on nothing at all. */
+body.overlay {
+  background: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--live);
+  outline-offset: 2px;
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/windows-schema.json",
+  "identifier": "default",
+  "description": "What the interface is allowed to ask the core for.",
+  "windows": ["main", "hud"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:event:default",
+    "dialog:allow-open",
+    "opener:allow-open-url",
+    "autostart:default"
+  ]
+}

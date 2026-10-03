@@ -1,0 +1,114 @@
+{
+  "comment": "One set of cases for both engines. The Swift CorrectionEngine and the Rust huh-core::corrections are run against this file in CI, so the two platforms cannot drift apart without a test going red. Each case lists the rules in force, the text in, and the text expected out.",
+  "version": 1,
+  "cases": [
+    {
+      "name": "a plain word is rewritten",
+      "rules": [{ "hear": "terraform", "write": "Terraform" }],
+      "in": "we ran terraform yesterday",
+      "out": "we ran Terraform yesterday"
+    },
+    {
+      "name": "a trigger said as two words is caught",
+      "rules": [{ "hear": "terra form", "write": "Terraform" }],
+      "in": "we ran terra form yesterday",
+      "out": "we ran Terraform yesterday"
+    },
+    {
+      "name": "the same trigger glued together is caught",
+      "rules": [{ "hear": "terra form", "write": "Terraform" }],
+      "in": "we ran terraform yesterday",
+      "out": "we ran Terraform yesterday"
+    },
+    {
+      "name": "a hyphen inside the trigger is a separator",
+      "rules": [{ "hear": "terra form", "write": "Terraform" }],
+      "in": "we ran terra-form yesterday",
+      "out": "we ran Terraform yesterday"
+    },
+    {
+      "name": "an underscore inside the trigger is a separator",
+      "rules": [{ "hear": "terra form", "write": "Terraform" }],
+      "in": "we ran terra_form yesterday",
+      "out": "we ran Terraform yesterday"
+    },
+    {
+      "name": "matching is case insensitive",
+      "rules": [{ "hear": "terraform", "write": "Terraform" }],
+      "in": "TERRAFORM and TerraForm",
+      "out": "Terraform and Terraform"
+    },
+    {
+      "name": "a trigger never matches inside a longer word",
+      "rules": [{ "hear": "form", "write": "Form" }],
+      "in": "the platform was reformed",
+      "out": "the platform was reformed"
+    },
+    {
+      "name": "a hyphen beside the match blocks it, being a different compound",
+      "rules": [{ "hear": "form", "write": "Form" }],
+      "in": "a well-form-ed thing",
+      "out": "a well-form-ed thing"
+    },
+    {
+      "name": "an apostrophe beside the match blocks it",
+      "rules": [{ "hear": "form", "write": "Form" }],
+      "in": "form's edge",
+      "out": "form's edge"
+    },
+    {
+      "name": "the longest trigger wins over a prefix of itself",
+      "rules": [
+        { "hear": "cuber netties", "write": "Kubernetes" },
+        { "hear": "cuber", "write": "Cuber" }
+      ],
+      "in": "we deployed to cuber netties",
+      "out": "we deployed to Kubernetes"
+    },
+    {
+      "name": "one rule's output is never eaten by another",
+      "rules": [
+        { "hear": "see sharp", "write": "C#" },
+        { "hear": "c", "write": "see" }
+      ],
+      "in": "written in see sharp",
+      "out": "written in C#"
+    },
+    {
+      "name": "every occurrence is rewritten",
+      "rules": [{ "hear": "jason", "write": "JSON" }],
+      "in": "jason in, jason out",
+      "out": "JSON in, JSON out"
+    },
+    {
+      "name": "a disabled rule does nothing",
+      "rules": [{ "hear": "terraform", "write": "Terraform", "enabled": false }],
+      "in": "we ran terraform",
+      "out": "we ran terraform"
+    },
+    {
+      "name": "a rule with an empty replacement is ignored",
+      "rules": [{ "hear": "terraform", "write": "" }],
+      "in": "we ran terraform",
+      "out": "we ran terraform"
+    },
+    {
+      "name": "a three word trigger is caught however it is spaced",
+      "rules": [{ "hear": "post gres cue el", "write": "PostgreSQL" }],
+      "in": "the post gres cue el box",
+      "out": "the PostgreSQL box"
+    },
+    {
+      "name": "punctuation around the match is left alone",
+      "rules": [{ "hear": "terraform", "write": "Terraform" }],
+      "in": "(terraform), terraform.",
+      "out": "(Terraform), Terraform."
+    },
+    {
+      "name": "a digit beside the match blocks it",
+      "rules": [{ "hear": "form", "write": "Form" }],
+      "in": "form2 and 3form",
+      "out": "form2 and 3form"
+    }
+  ]
+}

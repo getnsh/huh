@@ -1,0 +1,23 @@
+# The Windows build of huh?.
+#
+# Two crates by design. `huh-core` is the portion of the Mac app that is plain
+# logic -- corrections, cleanup, the stores, settings -- and it compiles and
+# tests on any platform, so the port is verifiable on the machine it is written
+# on. `huh` is the Tauri application and everything that touches Windows.
+[workspace]
+members = ["crates/huh-core", "app/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/getnsh/huh"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+fancy-regex = "0.13"

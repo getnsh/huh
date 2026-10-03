@@ -1,0 +1,78 @@
+# The Windows build.
+#
+# The port is written on a Mac, so nothing Windows-only is compiled on the
+# machine it is written on. This runs on every push that touches it: the
+# portable crate is tested on both platforms, and the Windows-only code at
+# least has to compile before it lands.
+name: windows
+
+on:
+  push:
+    branches: [main]
+    paths: ["windows/**", "shared/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", "shared/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: portable core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - name: formatting
+        run: cargo fmt --manifest-path windows/Cargo.toml -p huh-core -- --check
+      - name: lints
+        run: cargo clippy --manifest-path windows/Cargo.toml -p huh-core -- -D warnings
+      # The shared fixtures run here. A case added to them fails on whichever
+      # engine has not learned it yet, which is what keeps the Swift and the
+      # Rust correction passes from drifting apart.
+      - name: tests
+        run: cargo test --manifest-path windows/Cargo.toml -p huh-core
+
+  app:
+    name: build the app
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: windows/app/package-lock.json
+      - name: install the frontend
+        working-directory: windows/app
+        run: npm ci || npm install
+      - name: typecheck
+        working-directory: windows/app
+        run: npm run check
+      - name: build the frontend
+        working-directory: windows/app
+        run: npx vite build
+      - name: build the app
+        run: cargo build --manifest-path windows/Cargo.toml -p huh --release
+      - name: test the app crate
+        run: cargo test --manifest-path windows/Cargo.toml -p huh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: huh-windows-x64
+          path: windows/target/release/huh.exe
+          if-no-files-found: error
