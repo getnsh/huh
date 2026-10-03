@@ -5,6 +5,7 @@
      live colour scaling 0.97 to 1.16 over 620 ms. */
   import { listen } from "@tauri-apps/api/event";
   import LevelMeter from "./lib/LevelMeter.svelte";
+  import VoiceTrace from "./lib/ui/VoiceTrace.svelte";
 
   type State =
     | { kind: "idle" }
@@ -25,6 +26,9 @@
   // other state it will actually be set to.
   let phase = $state({ kind: "idle" } as State);
   let history: number[] = $state([]);
+  /* What the PC is playing, when it is being heard as well: the second trace. */
+  let pcHistory: number[] = $state([]);
+  let mixed: boolean = $state(false);
   let partial: string = $state("");
   let fitted: string = $state("");
   let confirmation: Delivery | null = $state(null);
@@ -34,6 +38,8 @@
 
   const listening = $derived(phase.kind === "listening" || phase.kind === "starting");
   const expanded = $derived(partial.length > 0 && confirmation === null);
+  /* Two sources means two traces, which needs the room to put them in. */
+  const twoVoices = $derived(mixed && confirmation === null);
 
   $effect(() => {
     const stops = [
@@ -46,9 +52,12 @@
           presses += 1;
           partial = "";
           confirmation = null;
+          pcHistory = [];
         }
       }),
       listen<number[]>("levels", (event) => (history = event.payload)),
+      listen<number[]>("pc-levels", (event) => (pcHistory = event.payload)),
+      listen<boolean>("mixed", (event) => (mixed = event.payload)),
       listen<string>("partial", (event) => (partial = event.payload)),
       // Held until the overlay has faded and gone, so the fade-out is the
       // confirmation leaving rather than the caption coming back.
@@ -111,6 +120,7 @@
   <div
     class="pill"
     class:expanded
+    class:mixed={twoVoices && !expanded}
     class:listening
   >
     <span class="bloom"></span>
@@ -129,6 +139,26 @@
       {:else if phase.kind === "failed"}
         <!-- No meter: a failure needs the width, and nothing is listening. -->
         <span class="caption wraps">{caption}</span>
+      {:else if twoVoices}
+        <!-- Both sources, stacked and labelled. A flat trace says the video
+             is paused or the microphone muted, worth knowing before the
+             words arrive rather than after. -->
+        <div class="voices">
+          <div class="voices-head">
+            <span class="caption" class:live={listening}>{caption || "Listening"}</span>
+            {#if phase.kind === "transcribing"}
+              <span class="spinner" aria-hidden="true"></span>
+            {/if}
+          </div>
+          <div class="voice">
+            <span class="who">You</span>
+            <VoiceTrace {history} active={listening} tint="var(--live)" height={22} />
+          </div>
+          <div class="voice">
+            <span class="who">PC</span>
+            <VoiceTrace history={pcHistory} active={listening} tint="var(--live-soft)" height={22} />
+          </div>
+        </div>
       {:else}
         <LevelMeter {history} active={listening} />
         <span class="caption" class:live={listening}>{caption}</span>
@@ -189,6 +219,46 @@
     width: 580px;
     gap: 14px;
     padding: 18px 20px;
+  }
+
+  .pill.mixed {
+    width: 388px;
+  }
+
+  .voices {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    animation: fade-in var(--quick-duration) var(--quick);
+  }
+
+  .voices-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .voice {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  /* 9.5 pt, uppercase, tracked: the Mac's trace labels. */
+  .who {
+    flex: 0 0 26px;
+    font-weight: 500;
+    font-size: 9.5px;
+    line-height: 1.2;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
   }
 
   /* The pill gives under the press and springs back. */
@@ -313,6 +383,7 @@
   @media (prefers-reduced-motion: reduce) {
     .pill,
     .confirmation,
+    .voices,
     .partial { animation: none; }
     .bloom { display: none; }
     .stage { transition: none; }

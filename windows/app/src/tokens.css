@@ -39,6 +39,12 @@
   --accent-fill: #F5F5F5;
   --accent-text: #0A0A0A;
 
+  /* Switches. The Mac's are untinted system switches, so they take the
+     system accent, which Theme.swift never names: these are read off the
+     parity screenshots (the track on, and the knob, white in both states). */
+  --switch-on: #0671FD;
+  --switch-knob: #FFFFFF;
+
   /* Metrics */
   --radius-control: 8px;
   --radius-card: 12px;
@@ -46,14 +52,19 @@
   --radius-hud: 22px;
 
   /* Type. The Mac uses the system face at 20 / 15 / 13 / 13 / 12 and weights
-     600 / 600 / 400 / 500; the sizes and weights carry over, the face cannot. */
-  --font: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
-  --title: 600 20px/1.25 var(--font);
-  --heading: 600 15px/1.3 var(--font);
-  --body: 400 13px/1.45 var(--font);
-  --medium: 500 13px/1.45 var(--font);
-  --mono: 400 12px/1.4 var(--font-mono);
+     600 / 600 / 400 / 500; the sizes and weights carry over, the face cannot.
+     Bundled, not assumed: Inter with its optical-size axis, which tightens at
+     display sizes and opens up at text sizes the way SF Pro's two cuts do.
+     The line height is SF Pro's own, 1.2: the Mac's measured row and bar
+     heights only come out right at that. Running text that wraps sets its
+     own, looser one. */
+  --font: "Inter Variable", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --title: 600 20px/1.2 var(--font);
+  --heading: 600 15px/1.2 var(--font);
+  --body: 400 13px/1.2 var(--font);
+  --medium: 500 13px/1.2 var(--font);
+  --mono: 400 12px/1.2 var(--font-mono);
 
   /* Motion. Two curves only, so movement reads as one system.
      spring(response: 0.32, dampingFraction: 0.86) and easeOut(0.14). */
@@ -61,6 +72,11 @@
   --spring-duration: 450ms;
   --quick: cubic-bezier(0, 0, 0.58, 1);
   --quick-duration: 140ms;
+
+  /* The session panel's own curve, for the window sliding in from the edge:
+     the Mac's LivePanel animates its frame with this, not with either of the
+     two above, and it is used for nothing else. */
+  --dock: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

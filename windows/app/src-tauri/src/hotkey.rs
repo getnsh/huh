@@ -102,10 +102,10 @@ mod platform {
                     if !HELD.swap(true, Ordering::SeqCst) {
                         send(Event::Down);
                     }
-                } else if message == WM_KEYUP || message == WM_SYSKEYUP {
-                    if HELD.swap(false, Ordering::SeqCst) {
-                        send(Event::Up);
-                    }
+                } else if (message == WM_KEYUP || message == WM_SYSKEYUP)
+                    && HELD.swap(false, Ordering::SeqCst)
+                {
+                    send(Event::Up);
                 }
             }
         }

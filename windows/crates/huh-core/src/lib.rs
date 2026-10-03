@@ -8,9 +8,15 @@
 pub mod cleanup;
 pub mod corrections;
 pub mod distance;
+pub mod ledger;
+pub mod library;
 pub mod model;
+pub mod passages;
+pub mod safety;
 pub mod settings;
+pub mod similar;
 pub mod store;
+pub mod vocabulary;
 
 pub use cleanup::{CleanupLevel, CleanupResult};
 pub use corrections::CorrectionResult;

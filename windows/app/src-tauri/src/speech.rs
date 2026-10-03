@@ -25,8 +25,17 @@ use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use parking_lot::RwLock;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams};
+use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity};
 use transcribe_rs::onnx::Quantization;
+
+/// A sentence the recogniser heard, and when, in seconds from the start of
+/// the audio it was given.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Spoken {
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+}
 
 /// What the window and the overlay say about the recogniser.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -261,6 +270,12 @@ enum Job {
         samples: Vec<f32>,
         reply: Sender<Option<String>>,
     },
+    /// A stretch of a recording or a meeting, returned sentence by sentence
+    /// with the time each began.
+    Sentences {
+        samples: Vec<f32>,
+        reply: Sender<Result<Vec<Spoken>, String>>,
+    },
 }
 
 type Listener = Box<dyn Fn(&Status) + Send + Sync>;
@@ -327,13 +342,24 @@ impl Recogniser {
     ///
     /// A preview gives way to everything. It is skipped while the model is
     /// still on its way, and whenever another job is already queued -- above
-    /// all the final pass for the same utterance, which must never wait behind
-    /// a preview of it. Declining, or failing, is `None`: a preview that does
-    /// not arrive costs nothing, and the final pass reports its own errors.
+    /// all the final pass for the same utterance, which must not queue behind
+    /// previews of it; at worst it waits out the one already running.
+    /// Declining, or failing, is `None`: a preview that does not arrive costs
+    /// nothing, and the final pass reports its own errors.
     pub fn preview(&self, samples: Vec<f32>) -> Option<String> {
         let (reply, answer) = bounded(1);
         self.jobs.send(Job::Preview { samples, reply }).ok()?;
         answer.recv().ok().flatten()
+    }
+
+    /// Recognises 16 kHz mono audio into sentences with their start times,
+    /// for transcripts that are read line by line: recordings and meetings.
+    pub fn sentences(&self, samples: Vec<f32>) -> Result<Vec<Spoken>, String> {
+        let (reply, answer) = bounded(1);
+        self.jobs
+            .send(Job::Sentences { samples, reply })
+            .map_err(|_| GONE.to_string())?;
+        answer.recv().map_err(|_| GONE.to_string())?
     }
 }
 
@@ -369,6 +395,10 @@ impl Worker {
                         _ => None,
                     };
                     let _ = reply.send(text);
+                }
+                Job::Sentences { samples, reply } => {
+                    let result = self.ensure().and_then(|model| sentences(model, &samples));
+                    let _ = reply.send(result);
                 }
             }
         }
@@ -425,6 +455,125 @@ impl Worker {
     }
 }
 
+/// Parakeet's words, grouped into sentences: split after a full stop,
+/// question mark or exclamation, each with its first word's time.
+///
+/// Asked for token by token and grouped here, rather than taken from
+/// transcribe-rs's own sentences. The model writes the space before a number
+/// as a token of its own, and transcribe-rs takes a token that is only a
+/// space for a blank and drops it, which glues the number to the word before
+/// it: "came in4%", "Thursday at10". The plain text keeps the space; only
+/// the timed sentences lost it.
+fn sentences(model: &mut ParakeetModel, samples: &[f32]) -> Result<Vec<Spoken>, String> {
+    let started = Instant::now();
+    let result = model
+        .transcribe_with(
+            samples,
+            &ParakeetParams {
+                timestamp_granularity: Some(TimestampGranularity::Token),
+                ..Default::default()
+            },
+        )
+        .map_err(|e| format!("Transcription failed: {e}"))?;
+    let tokens: Vec<(f64, f64, String)> = result
+        .segments
+        .unwrap_or_default()
+        .into_iter()
+        .map(|token| {
+            (
+                token.start.max(0.0) as f64,
+                token.end.max(0.0) as f64,
+                token.text,
+            )
+        })
+        .collect();
+    let mut spoken = group_sentences(&tokens);
+    // Words with no sentence boundary still come back as one line.
+    if spoken.is_empty() && !result.text.trim().is_empty() {
+        spoken.push(Spoken {
+            start: 0.0,
+            end: samples.len() as f64 / crate::audio::SPEECH_RATE as f64,
+            text: result.text.trim().to_string(),
+        });
+    }
+    tracing::info!(
+        seconds = samples.len() as f32 / crate::audio::SPEECH_RATE as f32,
+        lines = spoken.len(),
+        elapsed = ?started.elapsed(),
+        "recognised a passage"
+    );
+    Ok(spoken)
+}
+
+/// The word-boundary mark of a SentencePiece vocabulary, should a token
+/// arrive with it still in place rather than turned into a space.
+const BOUNDARY: char = '\u{2581}';
+
+/// Tokens, as `(start, end, text)` with a leading space marking a new word,
+/// into sentences. A token that is nothing but a space is a word boundary
+/// with no letters of its own, not a blank.
+fn group_sentences(tokens: &[(f64, f64, String)]) -> Vec<Spoken> {
+    struct Word {
+        start: f64,
+        end: f64,
+        text: String,
+    }
+    let mut words: Vec<Word> = Vec::new();
+    let mut boundary = true;
+    for (start, end, text) in tokens {
+        if text.starts_with([' ', BOUNDARY]) {
+            boundary = true;
+        }
+        let letters = text.trim_start_matches([' ', BOUNDARY]);
+        if letters.trim().is_empty() {
+            continue;
+        }
+        match words.last_mut() {
+            Some(word) if !boundary => {
+                word.text.push_str(letters);
+                word.end = *end;
+            }
+            _ => words.push(Word {
+                start: *start,
+                end: *end,
+                text: letters.to_string(),
+            }),
+        }
+        boundary = false;
+    }
+
+    let mut sentences = Vec::new();
+    let mut current: Vec<Word> = Vec::new();
+    let finish = |current: &mut Vec<Word>, sentences: &mut Vec<Spoken>| {
+        if let (Some(first), Some(last)) = (current.first(), current.last()) {
+            let text = current
+                .iter()
+                .map(|w| w.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            sentences.push(Spoken {
+                start: first.start,
+                end: last.end,
+                text,
+            });
+        }
+        current.clear();
+    };
+    for word in words {
+        // Closing quotes and brackets after the stop still end the sentence.
+        let ends = word
+            .text
+            .trim_end_matches(['"', '\'', ')', ']', '\u{201D}', '\u{2019}'])
+            .ends_with(['.', '?', '!']);
+        current.push(word);
+        if ends {
+            finish(&mut current, &mut sentences);
+        }
+    }
+    finish(&mut current, &mut sentences);
+    sentences
+}
+
 fn recognise(model: &mut ParakeetModel, samples: &[f32], preview: bool) -> Result<String, String> {
     let started = Instant::now();
     let result = model
@@ -441,4 +590,101 @@ fn recognise(model: &mut ParakeetModel, samples: &[f32], preview: bool) -> Resul
         tracing::info!(seconds, characters, ?elapsed, "transcribed");
     }
     Ok(text)
+}
+
+#[cfg(test)]
+mod sentence_tests {
+    use super::*;
+
+    fn tokens(list: &[(f64, &str)]) -> Vec<(f64, f64, String)> {
+        list.iter()
+            .enumerate()
+            .map(|(i, (start, text))| {
+                let end = list
+                    .get(i + 1)
+                    .map(|(next, _)| *next)
+                    .unwrap_or(start + 0.1);
+                (*start, end, text.to_string())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_number_keeps_the_space_the_model_wrote_before_it() {
+        let heard = tokens(&[
+            (0.0, " Re"),
+            (0.1, "ven"),
+            (0.2, "ue"),
+            (0.4, " c"),
+            (0.5, "ame"),
+            (0.7, " in"),
+            (0.9, " "),
+            (1.0, "4"),
+            (1.1, "%"),
+            (1.3, " ab"),
+            (1.4, "ove"),
+            (1.6, " the"),
+            (1.8, " for"),
+            (1.9, "ec"),
+            (2.0, "ast"),
+            (2.2, "."),
+            (3.0, " We"),
+            (3.2, " met"),
+            (3.4, " at"),
+            (3.5, " "),
+            (3.6, "1"),
+            (3.7, "0"),
+            (3.8, "."),
+        ]);
+        let sentences = group_sentences(&heard);
+        assert_eq!(sentences.len(), 2);
+        assert_eq!(sentences[0].text, "Revenue came in 4% above the forecast.");
+        assert_eq!(sentences[1].text, "We met at 10.");
+        assert_eq!(sentences[0].start, 0.0);
+        assert_eq!(sentences[1].start, 3.0);
+        assert!((sentences[1].end - 3.9).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_decimal_point_does_not_end_a_sentence() {
+        let heard = tokens(&[
+            (0.0, " It"),
+            (0.2, " grew"),
+            (0.4, " "),
+            (0.5, "4"),
+            (0.6, "."),
+            (0.7, "5"),
+            (0.8, "%"),
+            (1.0, " this"),
+            (1.2, " year"),
+            (1.4, "."),
+        ]);
+        let sentences = group_sentences(&heard);
+        assert_eq!(sentences.len(), 1);
+        assert_eq!(sentences[0].text, "It grew 4.5% this year.");
+    }
+
+    #[test]
+    fn words_without_a_full_stop_are_still_a_line() {
+        let heard = tokens(&[(0.0, " so"), (0.2, " that"), (0.4, "'s"), (0.6, " it")]);
+        let sentences = group_sentences(&heard);
+        assert_eq!(sentences.len(), 1);
+        assert_eq!(sentences[0].text, "so that's it");
+    }
+
+    #[test]
+    fn a_quoted_question_ends_its_sentence() {
+        let heard = tokens(&[
+            (0.0, " She"),
+            (0.2, " said"),
+            (0.4, " \"why"),
+            (0.6, "?\""),
+            (1.0, " Then"),
+            (1.2, " left"),
+            (1.4, "."),
+        ]);
+        let sentences = group_sentences(&heard);
+        assert_eq!(sentences.len(), 2);
+        assert_eq!(sentences[0].text, "She said \"why?\"");
+    }
 }

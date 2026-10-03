@@ -125,15 +125,19 @@ impl Person {
             .any(|spelling| spelling.trim().to_lowercase() == needle)
     }
 
-    /// Each alias becomes a rewrite rule pointing at the canonical spelling.
+    /// Each alias becomes a rewrite rule pointing at the canonical spelling,
+    /// as the Mac's `Rules` builds them: not for a person switched off or with
+    /// no name, and not for an alias that is the name itself.
     pub fn correction_rules(&self) -> Vec<CorrectionPair> {
-        if !self.enabled {
+        let name = self.name.trim();
+        if !self.enabled || name.is_empty() {
             return Vec::new();
         }
         self.aliases
             .iter()
-            .filter(|alias| !alias.trim().is_empty())
-            .map(|alias| CorrectionPair::new(alias.trim(), self.name.trim()))
+            .map(|alias| alias.trim())
+            .filter(|alias| !alias.is_empty() && alias.to_lowercase() != name.to_lowercase())
+            .map(|alias| CorrectionPair::new(alias, name))
             .collect()
     }
 }
@@ -170,7 +174,9 @@ impl TranscriptSegment {
 pub struct Transcript {
     #[serde(default)]
     pub analysis_findings: u32,
-    #[serde(default)]
+    /// When the learning pass read this transcript; absent until it has. The
+    /// Mac leaves the key out rather than writing null, and so does this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analyzed_at: Option<String>,
     #[serde(default)]
     pub cleanup_removed: u32,
@@ -196,7 +202,7 @@ pub struct Transcript {
     pub source_path: String,
     #[serde(default)]
     pub summary: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary_date: Option<String>,
     /// The text that was inserted.
     pub text: String,

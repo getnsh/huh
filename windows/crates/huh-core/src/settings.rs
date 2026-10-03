@@ -64,8 +64,14 @@ impl HotKey {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    /// Whether a call that starts is transcribed without asking first.
+    #[serde(default)]
+    pub captures_meetings_automatically: bool,
     #[serde(default)]
     pub cleanup_level: CleanupLevel,
+    /// Whether the one-time offer to start at sign-in has been answered.
+    #[serde(default)]
+    pub has_asked_launch_at_login: bool,
     /// Whether holding the key also captures what the PC is playing.
     #[serde(default)]
     pub hears_system_audio: bool,
@@ -75,6 +81,12 @@ pub struct Settings {
     pub injection_mode: InjectionMode,
     #[serde(default = "english")]
     pub locale_identifier: String,
+    /// Where the session panel's top-left corner was last dragged to, in
+    /// physical pixels on the virtual screen. Unset until it has been moved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel_anchor_x: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel_anchor_y: Option<i32>,
     #[serde(default = "yes")]
     pub play_feedback_sounds: bool,
     #[serde(default)]
@@ -89,11 +101,15 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            captures_meetings_automatically: false,
             cleanup_level: CleanupLevel::default(),
+            has_asked_launch_at_login: false,
             hears_system_audio: false,
             hotkey: HotKey::default(),
             injection_mode: InjectionMode::default(),
             locale_identifier: english(),
+            panel_anchor_x: None,
+            panel_anchor_y: None,
             play_feedback_sounds: true,
             start_at_login: false,
             trigger_mode: TriggerMode::default(),

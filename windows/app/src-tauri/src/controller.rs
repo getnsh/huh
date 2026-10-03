@@ -16,8 +16,9 @@ use huh_core::{cleanup, corrections, Transcript, TranscriptSource};
 
 use crate::dictation::{Ending, Opened, State};
 use crate::inject::{self, Outcome};
+use crate::sounds::{self, Chime};
 use crate::speech::{Status, ENGINE_NAME};
-use crate::{audio, overlay, Shared};
+use crate::{audio, learning, overlay, tray, Shared};
 
 /// How long the overlay holds a confirmation, as on the Mac.
 const CONFIRMATION: Duration = Duration::from_millis(1400);
@@ -30,9 +31,9 @@ const METER_INTERVAL: Duration = Duration::from_millis(33);
 /// interval rather than the interval itself.
 const PREVIEW_PAUSE: Duration = Duration::from_millis(250);
 /// How much of the utterance a preview reads. The overlay shows the last four
-/// lines, which is less than this much speech, so reading more would cost time
-/// and show nothing.
-const PREVIEW_WINDOW: f64 = 20.0;
+/// lines, about thirty-five words, which is about this much speech; reading
+/// more would cost time and show nothing.
+const PREVIEW_WINDOW: f64 = 12.0;
 /// Below this, there is nothing worth previewing yet.
 const PREVIEW_MINIMUM: f64 = 0.6;
 
@@ -68,7 +69,9 @@ pub fn toggle(handle: &AppHandle, app: &Shared) {
 }
 
 fn publish(handle: &AppHandle, app: &Shared) {
-    let _ = handle.emit("dictation", app.dictation.state());
+    let state = app.dictation.state();
+    tray::refresh(handle);
+    let _ = handle.emit("dictation", state);
 }
 
 fn begin(handle: &AppHandle, app: &Shared) {
@@ -76,8 +79,18 @@ fn begin(handle: &AppHandle, app: &Shared) {
         return;
     }
     let utterance = app.utterances.fetch_add(1, Ordering::SeqCst) + 1;
+    // Said before the overlay shows, so it opens at the right shape: two
+    // traces when the PC is being heard as well.
+    let (hears_pc, chimes) = {
+        let settings = app.settings.read();
+        (settings.hears_system_audio, settings.play_feedback_sounds)
+    };
+    let _ = handle.emit("mixed", hears_pc);
     publish(handle, app);
     overlay::show(handle);
+    if chimes {
+        sounds::play(Chime::Start);
+    }
 
     // Before the microphone: a press during the first-launch download should
     // say so, not record something there is nothing to transcribe with.
@@ -102,6 +115,14 @@ fn begin(handle: &AppHandle, app: &Shared) {
     if let Err(message) = app.recorder.start() {
         return fail(handle, app, message);
     }
+    // The microphone is the stream that must work. A PC that won't open is
+    // reported and dictation carries on without it, as on the Mac.
+    if hears_pc {
+        if let Err(error) = app.pc.open() {
+            tracing::warn!(%error, "the PC's sound is unavailable; dictating from the microphone alone");
+            let _ = handle.emit("mixed", false);
+        }
+    }
     match app.dictation.opened() {
         Opened::Listening => {
             publish(handle, app);
@@ -114,6 +135,7 @@ fn begin(handle: &AppHandle, app: &Shared) {
         }
         Opened::Abandoned => {
             let _ = app.recorder.stop();
+            let _ = app.pc.close();
         }
     }
 }
@@ -122,6 +144,7 @@ fn conclude(handle: &AppHandle, app: &Shared, ending: Ending) {
     match ending {
         Ending::Cancelled => {
             let _ = app.recorder.stop();
+            let _ = app.pc.close();
             publish(handle, app);
             overlay::hide(handle, overlay::current());
         }
@@ -140,10 +163,21 @@ fn meter(handle: &AppHandle, app: &Shared, utterance: u64) {
     let _ = std::thread::Builder::new()
         .name("huh-meter".into())
         .spawn(move || {
+            let mut pc_pushes = 0usize;
             while app.utterances.load(Ordering::SeqCst) == utterance
                 && matches!(app.dictation.state(), State::Starting | State::Listening)
             {
                 let _ = handle.emit("levels", app.recorder.meter.history());
+                if app.pc.is_open() {
+                    // Windows sends nothing at all while nothing plays, so a
+                    // tick with nothing new from the PC is a quiet one.
+                    let pushes = app.pc.meter.pushes();
+                    if pushes == pc_pushes {
+                        app.pc.meter.push(0.0);
+                    }
+                    pc_pushes = app.pc.meter.pushes();
+                    let _ = handle.emit("pc-levels", app.pc.meter.history());
+                }
                 std::thread::sleep(METER_INTERVAL);
             }
             let _ = handle.emit("levels", Vec::<audio::Level>::new());
@@ -153,7 +187,7 @@ fn meter(handle: &AppHandle, app: &Shared, utterance: u64) {
 /// The words so far, while the key is held, as the Mac's overlay shows them.
 ///
 /// Parakeet does not stream, so each preview recognises the utterance again
-/// from the top, or its last twenty seconds once it is longer than that. One
+/// from the top, or its last twelve seconds once it is longer than that. One
 /// is in flight at a time, and the recogniser drops a preview rather than make
 /// the final pass wait for it.
 fn preview(handle: &AppHandle, app: &Shared, utterance: u64) {
@@ -166,7 +200,12 @@ fn preview(handle: &AppHandle, app: &Shared, utterance: u64) {
             let mut heard = 0usize;
             while current() && app.dictation.state() == State::Listening {
                 std::thread::sleep(PREVIEW_PAUSE);
-                let recording = app.recorder.recent(PREVIEW_WINDOW);
+                let (recording, from) = app.recorder.recent(PREVIEW_WINDOW);
+                let recording = if app.pc.is_open() {
+                    recording.mixed_with(&app.pc.since(from))
+                } else {
+                    recording
+                };
                 let total = app.dictation.since_begin().as_secs_f64();
                 if recording.seconds() < PREVIEW_MINIMUM || recording.samples.len() == heard {
                     continue;
@@ -192,7 +231,8 @@ fn preview(handle: &AppHandle, app: &Shared, utterance: u64) {
 }
 
 fn transcribe(handle: &AppHandle, app: &Shared) {
-    let recording = app.recorder.stop();
+    let pc = app.pc.close();
+    let recording = app.recorder.stop().mixed_with(&pc);
     let handle = handle.clone();
     let app = app.clone();
     let _ = std::thread::Builder::new()
@@ -212,6 +252,9 @@ fn transcribe(handle: &AppHandle, app: &Shared) {
             };
             app.dictation.finish();
             publish(&handle, &app);
+            if app.settings.read().play_feedback_sounds {
+                sounds::play(Chime::Stop);
+            }
             confirm(&handle, outcome);
         });
 }
@@ -220,10 +263,9 @@ fn transcribe(handle: &AppHandle, app: &Shared) {
 fn deliver(handle: &AppHandle, app: &Shared, raw: String) -> Outcome {
     // The deterministic pass. Bias toward the dictionary is only advice to a
     // recogniser; this is what enforces it.
-    let corrected = corrections::apply(&raw, &app.stores.corrections());
-    if let Err(error) = app.stores.record_hits(&corrected.applied) {
-        tracing::warn!(%error, "could not record correction hits");
-    }
+    let rules = app.library.lock().corrections();
+    let corrected = corrections::apply(&raw, &rules);
+    app.library.lock().record_hits(&corrected.applied);
 
     // Corrections first, against the recogniser's literal output; cleanup then
     // works on the result.
@@ -252,11 +294,20 @@ fn deliver(handle: &AppHandle, app: &Shared, raw: String) -> Outcome {
         summary_date: None,
         text: cleaned.text,
     };
-    match app.stores.add_transcript(transcript.clone()) {
-        Ok(()) => {
+    let refused = {
+        let mut library = app.library.lock();
+        library.add_transcript(transcript.clone());
+        library.history_error.clone()
+    };
+    match refused {
+        None => {
             let _ = handle.emit("transcript", &transcript);
+            // Copy Last Transcript has something to copy now.
+            tray::refresh(handle);
+            // Read for names and words a moment later, as the Mac does.
+            learning::schedule_queue(app);
         }
-        Err(error) => tracing::error!(%error, "could not save the transcript"),
+        Some(error) => tracing::error!(%error, "the transcript was not saved"),
     }
     outcome
 }
@@ -277,6 +328,7 @@ fn confirm(handle: &AppHandle, outcome: Outcome) {
 fn fail(handle: &AppHandle, app: &Shared, message: String) {
     tracing::warn!(%message, "dictation failed");
     let _ = app.recorder.stop();
+    let _ = app.pc.close();
     app.dictation.fail(message);
     publish(handle, app);
     let generation = overlay::current();

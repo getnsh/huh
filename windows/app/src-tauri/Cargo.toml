@@ -21,10 +21,11 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 uuid.workspace = true
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
 parking_lot = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -38,6 +39,9 @@ transcribe-rs = { version = "0.3.12", features = ["onnx"] }
 # works without configuration.
 ureq = { version = "3", default-features = false, features = ["native-tls"] }
 sha2 = "0.10"
+# "Move to Recycle Bin" after a recording is transcribed: the Windows shell's
+# own recycle, so it can be put back from the Recycle Bin.
+trash = "5"
 
 [dev-dependencies]
 # Reads the WAV files the `transcribe` example is pointed at.
@@ -46,6 +50,7 @@ hound = "3.5"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
     "Win32_UI_HiDpi",
     "Win32_UI_Input_KeyboardAndMouse",
@@ -60,5 +65,7 @@ windows = { version = "0.58", features = [
     "Win32_Globalization",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
+    "Win32_Media_MediaFoundation",
     "Win32_System_Registry",
+    "Win32_Storage_FileSystem",
 ] }

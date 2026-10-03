@@ -5,29 +5,53 @@
 //! only draws and sends commands. A busy interface can then never delay a
 //! keypress or a paste, which on a push-to-talk app is the whole game.
 pub mod audio;
+pub mod book;
+pub mod capture;
+pub mod chrome;
 pub mod controller;
 pub mod dictation;
+pub mod files;
 pub mod hotkey;
 pub mod inject;
+pub mod learning;
+pub mod media;
+pub mod meetings;
 pub mod overlay;
+pub mod session;
+mod sounds;
 pub mod speech;
+pub mod spelling;
+pub mod system;
+pub mod tray;
 
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use tauri::{Emitter, Manager};
 
+use huh_core::library::Library;
 use huh_core::settings::Settings;
 use huh_core::store::Stores;
 
 /// What the whole app shares.
 pub struct App {
+    /// Where settings.json lives. Everything else is the library's.
     pub stores: Stores,
     pub settings: RwLock<Settings>,
+    /// The dictionary, the people, the history and the ledger, behind one
+    /// lock, so dictation counting a hit and the window adding a rule cannot
+    /// undo each other.
+    pub library: Mutex<Library>,
     pub dictation: dictation::Machine,
     pub recorder: audio::Recorder,
+    /// What the PC is playing, summed in while the key is held when "Your PC
+    /// as well as you" is on.
+    pub pc: audio::PcTap,
     pub recogniser: speech::Recogniser,
+    pub learning: learning::Learning,
+    pub files: files::Files,
+    pub session: session::Session,
     /// Counts utterances, so work started for one can tell it has been
     /// overtaken by the next.
     pub utterances: AtomicU64,
@@ -38,60 +62,22 @@ impl App {
         let stores = Stores::default();
         let settings = stores.settings();
         Self {
+            library: Mutex::new(Library::open(Stores::new(stores.root.clone()))),
             stores,
             settings: RwLock::new(settings),
             dictation: dictation::Machine::new(),
             recorder: audio::Recorder::new(),
+            pc: audio::PcTap::default(),
             recogniser: speech::Recogniser::new(),
+            learning: learning::Learning::default(),
+            files: files::Files::default(),
+            session: session::Session::default(),
             utterances: AtomicU64::new(0),
         }
     }
 }
 
 pub type Shared = Arc<App>;
-
-#[tauri::command]
-fn get_settings(app: tauri::State<'_, Shared>) -> Settings {
-    app.settings.read().clone()
-}
-
-#[tauri::command]
-fn set_settings(app: tauri::State<'_, Shared>, settings: Settings) -> Result<(), String> {
-    app.stores
-        .save_settings(&settings)
-        .map_err(|e| e.to_string())?;
-    hotkey::set_key(hotkey::virtual_key(settings.hotkey));
-    *app.settings.write() = settings;
-    Ok(())
-}
-
-#[tauri::command]
-fn get_dictionary(app: tauri::State<'_, Shared>) -> huh_core::DictionaryFile {
-    app.stores.dictionary()
-}
-
-#[tauri::command]
-fn save_dictionary(
-    app: tauri::State<'_, Shared>,
-    file: huh_core::DictionaryFile,
-) -> Result<(), String> {
-    app.stores.save_dictionary(&file).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_people(app: tauri::State<'_, Shared>) -> huh_core::PeopleFile {
-    app.stores.people()
-}
-
-#[tauri::command]
-fn save_people(app: tauri::State<'_, Shared>, file: huh_core::PeopleFile) -> Result<(), String> {
-    app.stores.save_people(&file).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_history(app: tauri::State<'_, Shared>) -> Vec<huh_core::Transcript> {
-    app.stores.history()
-}
 
 /// Runs a correction pass without touching any file, so the dictionary editor
 /// can show what a rule would do before it is saved.
@@ -100,7 +86,7 @@ fn preview_corrections(
     app: tauri::State<'_, Shared>,
     text: String,
 ) -> huh_core::corrections::CorrectionResult {
-    let rules = app.stores.corrections();
+    let rules = app.library.lock().corrections();
     huh_core::corrections::apply(&text, &rules)
 }
 
@@ -138,6 +124,12 @@ pub fn run() {
     let shared: Shared = Arc::new(App::load());
 
     tauri::Builder::default()
+        // First, as the plugin requires. A second launch hands over to the
+        // first and exits, rather than becoming a second copy with its own
+        // keyboard hook and its own copy of the model.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            chrome::reveal(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
@@ -146,18 +138,79 @@ pub fn run() {
         ))
         .manage(shared.clone())
         .invoke_handler(tauri::generate_handler![
-            get_settings,
-            set_settings,
-            get_dictionary,
-            save_dictionary,
-            get_people,
-            save_people,
-            get_history,
             preview_corrections,
             state,
             engine_status,
             toggle_dictation,
+            book::get_history,
+            book::delete_transcripts,
+            book::write_export,
+            book::is_playable,
+            book::dictionary_state,
+            book::add_term,
+            book::update_term,
+            book::set_term_enabled,
+            book::delete_term,
+            book::add_correction,
+            book::update_correction,
+            book::set_correction_enabled,
+            book::delete_correction,
+            book::add_person,
+            book::update_person,
+            book::set_person_enabled,
+            book::delete_person,
+            book::dismiss_retro_note,
+            book::check_correction,
+            book::correction_context,
+            book::reveal_file,
+            learning::suggestions,
+            learning::learning_state,
+            learning::run_learning,
+            learning::accept_candidate,
+            learning::accept_candidate_as_person,
+            learning::dismiss_candidate,
+            learning::reset_dismissed,
+            learning::accept_proposal,
+            learning::proposal_as_person,
+            learning::take_proposal_for_edit,
+            learning::dismiss_proposal,
+            learning::accept_person_proposal,
+            learning::dismiss_person_proposal,
+            learning::restore_dismissed,
+            learning::dismiss_scan_result,
+            files::transcribe_file,
+            files::file_job,
+            files::keep_original,
+            files::recycle_original,
+            files::dismiss_file_failure,
+            system::get_settings,
+            system::set_settings,
+            system::audio_input,
+            system::open_settings,
+            system::open_system_settings,
+            system::launch_at_login,
+            system::set_launch_at_login,
+            session::session_state,
+            session::toggle_session,
+            session::accept_offer,
+            session::decline_offer,
+            session::dismiss_panel,
+            session::open_saved,
+            session::set_panel_expanded,
+            session::panel_measured,
+            session::panel_drag,
         ])
+        .on_window_event(|window, event| {
+            // Alt+F4 and the taskbar's "Close window" hide the main window,
+            // as its own close button does: the key keeps working, and the
+            // tray brings it back.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .setup(move |app| {
             // The overlay exists from launch, hidden.
             //
@@ -168,14 +221,21 @@ pub fn run() {
                 let _ = hud.hide();
             }
             let handle = app.handle().clone();
+            tray::install(&handle)?;
             overlay::prepare(&handle);
+            chrome::dress(&handle);
 
             // The model loads now, long before the first press needs it, and
             // on a first launch this is where it is downloaded.
             let events = handle.clone();
             shared.recogniser.prepare(move |status| {
                 let _ = events.emit("engine", status);
+                tray::refresh(&events);
             });
+
+            learning::start(&handle, &shared);
+            system::watch_input(&handle);
+            session::start_watching(&handle, &shared);
 
             hotkey::set_key(hotkey::virtual_key(shared.settings.read().hotkey));
             let shared = shared.clone();

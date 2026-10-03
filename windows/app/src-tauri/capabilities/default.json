@@ -2,7 +2,12 @@
   "$schema": "../gen/schemas/windows-schema.json",
   "identifier": "default",
   "description": "What the interface is allowed to ask the core for.",
-  "windows": ["main", "hud"],
+  "windows": [
+    "main",
+    "hud",
+    "settings",
+    "panel"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -15,6 +20,7 @@
     "core:window:allow-set-size",
     "core:event:default",
     "dialog:allow-open",
+    "dialog:allow-save",
     "opener:allow-open-url",
     "autostart:default"
   ]

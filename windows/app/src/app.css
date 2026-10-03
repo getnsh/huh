@@ -13,10 +13,12 @@ body {
   font: var(--body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-optical-sizing: auto;
   /* A desktop window is not a web page: nothing here is selectable text until
      a view says it is, and nothing rubber-bands. */
   user-select: none;
   overflow: hidden;
+  cursor: default;
 }
 
 /* The overlay draws its own shape on nothing at all. The root as well as the
@@ -33,9 +35,75 @@ button {
   border: 0;
   background: none;
   cursor: default;
+  padding: 0;
+}
+
+input,
+textarea {
+  font: inherit;
+  cursor: text;
+}
+
+/* Every glyph the Icon component draws: a fixed box that never squeezes. */
+.icon {
+  flex: 0 0 auto;
+  display: block;
+}
+
+/* Text a person might want to copy: a transcript, a summary. */
+.selectable {
+  user-select: text;
+  cursor: text;
+}
+
+/* The Mac draws no focus rings at all. Keyboard users on Windows still need
+   to see where they are, so one stays, for the keyboard only, in grey: the
+   live colour is for things that are happening, and focus is not one. */
+:focus {
+  outline: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--live);
+  outline: 1.5px solid var(--text-tertiary);
   outline-offset: 2px;
+}
+
+/* The Mac's HoverHighlight: a raised card that lifts a step on the ladder
+   under the pointer. Only rows react to hover; buttons answer the press. */
+.hover-card {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+  border-radius: var(--radius-card);
+  transition:
+    background-color var(--quick-duration) var(--quick),
+    box-shadow var(--quick-duration) var(--quick);
+}
+
+.hover-card:hover {
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Scrollbars like the Mac's overlay ones: thin, dark, out of the way. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--pressed) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary) padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

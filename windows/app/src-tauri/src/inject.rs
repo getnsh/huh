@@ -63,6 +63,11 @@ impl Outcome {
     }
 }
 
+/// Puts `text` on the clipboard and leaves it there.
+pub fn copy(text: &str) -> Result<(), String> {
+    platform::copy(text)
+}
+
 pub fn insert(text: &str, always_paste: bool) -> Outcome {
     if text.is_empty() {
         return Outcome::nothing_heard();
@@ -80,21 +85,33 @@ impl Outcome {
 #[cfg(windows)]
 mod platform {
     use super::Outcome;
-    use windows::core::BSTR;
+    use windows::core::{w, PCWSTR, PWSTR};
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::Storage::FileSystem::{
+        GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
+    };
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
     };
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
     use windows::Win32::UI::Accessibility::{
-        CUIAutomation, IUIAutomation, UIA_IsPasswordPropertyId, UIA_NamePropertyId,
+        CUIAutomation, IUIAutomation, UIA_IsPasswordPropertyId,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
         VIRTUAL_KEY, VK_CONTROL, VK_V,
     };
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
     /// What has focus, and whether we are allowed to write into it.
     struct Focus {
-        name: String,
+        /// The process that owns the focused element. Taken from the element
+        /// rather than the foreground window, because a Store app's window
+        /// belongs to `ApplicationFrameHost.exe` while its text box does not.
+        process: u32,
         is_password: bool,
     }
 
@@ -109,13 +126,95 @@ mod platform {
                 .ok()
                 .and_then(|value| bool::try_from(&value).ok())
                 .unwrap_or(false);
-            let name = element
-                .GetCurrentPropertyValue(UIA_NamePropertyId)
-                .ok()
-                .and_then(|value| BSTR::try_from(&value).ok())
-                .map(|value| value.to_string())
-                .unwrap_or_default();
-            Some(Focus { name, is_password })
+            let process = element.CurrentProcessId().unwrap_or(0) as u32;
+            Some(Focus {
+                process,
+                is_password,
+            })
+        }
+    }
+
+    /// The application by the name it gives itself, as Task Manager shows it:
+    /// "Notepad", "Google Chrome". The Mac confirms the app the text went to,
+    /// and an element's own label ("Message", "Text editor") says less.
+    fn application(process: u32) -> Option<String> {
+        let process = if process != 0 {
+            process
+        } else {
+            let mut owner = 0u32;
+            unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut owner)) };
+            owner
+        };
+        if process == 0 || process == std::process::id() {
+            return None;
+        }
+        let path = unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process).ok()?;
+            let mut buffer = [0u16; 1024];
+            let mut length = buffer.len() as u32;
+            let found = QueryFullProcessImageNameW(
+                handle,
+                PROCESS_NAME_WIN32,
+                PWSTR(buffer.as_mut_ptr()),
+                &mut length,
+            );
+            let _ = CloseHandle(handle);
+            found.ok()?;
+            String::from_utf16_lossy(&buffer[..length as usize])
+        };
+        description(&path).or_else(|| {
+            std::path::Path::new(&path)
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+        })
+    }
+
+    /// The file description in an executable's version resource.
+    fn description(path: &str) -> Option<String> {
+        let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
+        let file = PCWSTR(wide.as_ptr());
+        unsafe {
+            let size = GetFileVersionInfoSizeW(file, None);
+            if size == 0 {
+                return None;
+            }
+            let mut data = vec![0u8; size as usize];
+            GetFileVersionInfoW(file, 0, size, data.as_mut_ptr().cast()).ok()?;
+
+            // The first language and code page the resource lists.
+            let mut pointer = std::ptr::null_mut();
+            let mut length = 0u32;
+            let listed = VerQueryValueW(
+                data.as_ptr().cast(),
+                w!("\\VarFileInfo\\Translation"),
+                &mut pointer,
+                &mut length,
+            );
+            if !listed.as_bool() || length < 4 {
+                return None;
+            }
+            let pair = pointer as *const u16;
+            let key = format!(
+                "\\StringFileInfo\\{:04x}{:04x}\\FileDescription",
+                *pair,
+                *pair.add(1)
+            );
+            let key: Vec<u16> = key.encode_utf16().chain(Some(0)).collect();
+            let found = VerQueryValueW(
+                data.as_ptr().cast(),
+                PCWSTR(key.as_ptr()),
+                &mut pointer,
+                &mut length,
+            );
+            if !found.as_bool() || length == 0 {
+                return None;
+            }
+            let units = std::slice::from_raw_parts(pointer as *const u16, length as usize);
+            let text = String::from_utf16_lossy(units)
+                .trim_end_matches('\0')
+                .trim()
+                .to_string();
+            (!text.is_empty()).then_some(text)
         }
     }
 
@@ -130,7 +229,7 @@ mod platform {
                 return Outcome::refused("Not typing into a password field.");
             }
         }
-        let target = focus.map(|f| f.name).unwrap_or_default();
+        let target = application(focus.map(|f| f.process).unwrap_or(0)).unwrap_or_default();
 
         if paste {
             match paste_text(text) {
@@ -214,6 +313,11 @@ mod platform {
         })
     }
 
+    /// Leaves `text` on the clipboard, for a person to paste themselves.
+    pub fn copy(text: &str) -> Result<(), String> {
+        clipboard::write(text)
+    }
+
     mod clipboard {
         use windows::Win32::Foundation::{HANDLE, HGLOBAL};
         use windows::Win32::System::DataExchange::{
@@ -269,7 +373,7 @@ mod platform {
             }
         }
 
-        fn write(text: &str) -> Result<(), String> {
+        pub fn write(text: &str) -> Result<(), String> {
             unsafe {
                 OpenClipboard(None).map_err(|e| e.to_string())?;
                 EmptyClipboard().map_err(|e| e.to_string())?;
@@ -292,6 +396,10 @@ mod platform {
 #[cfg(not(windows))]
 mod platform {
     use super::Outcome;
+
+    pub fn copy(_text: &str) -> Result<(), String> {
+        Err("The clipboard is only implemented on Windows.".into())
+    }
 
     pub fn insert(text: &str, paste: bool) -> Outcome {
         tracing::info!(

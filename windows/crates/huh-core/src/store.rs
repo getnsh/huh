@@ -5,6 +5,9 @@
 //! The only difference is where the folder lives: `%APPDATA%\Huh` rather than
 //! `~/Library/Application Support/Huh`. `Huh`, not `huh?`, for the same reason
 //! as on the Mac -- the display name has a character in it that a path cannot.
+//!
+//! This is the file layer only. What the files mean -- which rule fires, what
+//! a new name rewrites -- is the library's.
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -12,9 +15,6 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::model::{
-    AppliedCorrection, CorrectionPair, DictionaryFile, PeopleFile, Transcript, VocabularyTerm,
-};
 use crate::settings::Settings;
 
 /// The folder every file lives in.
@@ -33,21 +33,42 @@ pub fn directory() -> PathBuf {
     base.join("Huh")
 }
 
-/// How many bias strings the recogniser is given. Long context lists make
-/// these models drift and emit spurious text on near-silent audio.
-pub const BIAS_LIMIT: usize = 120;
-
 /// How many transcripts are kept.
 pub const HISTORY_LIMIT: usize = 500;
 
-fn read_json<T: DeserializeOwned + Default>(path: &Path) -> T {
-    let Ok(raw) = fs::read_to_string(path) else {
-        return T::default();
-    };
-    serde_json::from_str(&raw).unwrap_or_default()
+/// What reading a file found.
+///
+/// Three answers rather than two, because "not there" and "there but
+/// unreadable" call for opposite things: the first is a fresh start, and the
+/// second is someone's data that must not be overwritten by an empty list the
+/// next time anything is saved.
+#[derive(Debug)]
+pub enum Loaded<T> {
+    Missing,
+    Read(T),
+    Corrupt(String),
 }
 
-fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
+pub fn load<T: DeserializeOwned>(path: &Path) -> Loaded<T> {
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Loaded::Missing,
+        Err(error) => return Loaded::Corrupt(error.to_string()),
+    };
+    match serde_json::from_str(&raw) {
+        Ok(value) => Loaded::Read(value),
+        Err(error) => Loaded::Corrupt(error.to_string()),
+    }
+}
+
+fn read_json<T: DeserializeOwned + Default>(path: &Path) -> T {
+    match load(path) {
+        Loaded::Read(value) => value,
+        _ => T::default(),
+    }
+}
+
+pub fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -86,191 +107,23 @@ impl Stores {
     pub fn history_path(&self) -> PathBuf {
         self.root.join("history.json")
     }
+    /// Where an unreadable history is copied before anything else happens.
+    pub fn history_corrupt_path(&self) -> PathBuf {
+        self.root.join("history.corrupt.json")
+    }
+    pub fn decisions_path(&self) -> PathBuf {
+        self.root.join("decisions.json")
+    }
     pub fn settings_path(&self) -> PathBuf {
         self.root.join("settings.json")
     }
 
-    pub fn dictionary(&self) -> DictionaryFile {
-        read_json(&self.dictionary_path())
-    }
-    pub fn save_dictionary(&self, value: &DictionaryFile) -> io::Result<()> {
-        write_json(&self.dictionary_path(), value)
-    }
-
-    pub fn people(&self) -> PeopleFile {
-        read_json(&self.people_path())
-    }
-    pub fn save_people(&self, value: &PeopleFile) -> io::Result<()> {
-        write_json(&self.people_path(), value)
-    }
-
-    pub fn history(&self) -> Vec<Transcript> {
-        read_json(&self.history_path())
-    }
-    pub fn save_history(&self, value: &[Transcript]) -> io::Result<()> {
-        let trimmed = if value.len() > HISTORY_LIMIT {
-            &value[..HISTORY_LIMIT]
-        } else {
-            value
-        };
-        write_json(&self.history_path(), &trimmed)
-    }
-
+    /// Settings fall back to defaults when unreadable: they are a handful of
+    /// choices, cheap to make again, and nothing else depends on them.
     pub fn settings(&self) -> Settings {
         read_json(&self.settings_path())
     }
     pub fn save_settings(&self, value: &Settings) -> io::Result<()> {
         write_json(&self.settings_path(), value)
-    }
-
-    /// Everything dictation needs: the spellings to bias the recogniser toward,
-    /// and the rewrites to apply afterwards.
-    ///
-    /// Assembled here rather than read from one store, because names live in
-    /// their own file and dictation has to see both without either store
-    /// knowing the other exists.
-    pub fn bias(&self) -> Vec<String> {
-        let people = self.people();
-        let dictionary = self.dictionary();
-        let mut seen = std::collections::HashSet::new();
-        let mut out = Vec::new();
-        // Names lead: they are what recognition gets wrong most often, and the
-        // list is truncated.
-        let candidates = people
-            .people
-            .iter()
-            .filter(|person| person.enabled)
-            .flat_map(|person| person.all_spellings().into_iter().map(str::to_string))
-            .chain(
-                dictionary
-                    .terms
-                    .iter()
-                    .filter(|term| term.enabled)
-                    .map(|term| term.text.clone()),
-            );
-        for value in candidates {
-            let text = value.trim().to_string();
-            if text.is_empty() || !seen.insert(text.to_lowercase()) {
-                continue;
-            }
-            out.push(text);
-            if out.len() == BIAS_LIMIT {
-                break;
-            }
-        }
-        out
-    }
-
-    /// The dictionary comes first, so a rule written by hand wins over one
-    /// derived from an alias.
-    pub fn corrections(&self) -> Vec<CorrectionPair> {
-        let mut out = self.dictionary().corrections;
-        for person in self.people().people {
-            out.extend(person.correction_rules());
-        }
-        out
-    }
-
-    pub fn add_term(&self, text: &str, note: &str) -> io::Result<()> {
-        let mut file = self.dictionary();
-        file.terms.push(VocabularyTerm {
-            enabled: true,
-            id: uuid::Uuid::new_v4(),
-            note: note.trim().to_string(),
-            text: text.trim().to_string(),
-        });
-        self.save_dictionary(&file)
-    }
-
-    pub fn add_correction(&self, hear: &str, write: &str) -> io::Result<()> {
-        let mut file = self.dictionary();
-        file.corrections
-            .push(CorrectionPair::new(hear.trim(), write.trim()));
-        self.save_dictionary(&file)
-    }
-
-    pub fn add_transcript(&self, transcript: Transcript) -> io::Result<()> {
-        let mut history = self.history();
-        history.insert(0, transcript);
-        self.save_history(&history)
-    }
-
-    /// Counts each correction that fired against the rule it came from, so the
-    /// dictionary can show which entries are earning their place.
-    ///
-    /// Matched on the trigger, ignoring case, as the Mac's
-    /// `DictionaryStore.recordHits` matches. A rule derived from a person's
-    /// alias lives in `people.json` and keeps no count, so it is not looked for,
-    /// and nothing is written when no rule in the dictionary fired.
-    pub fn record_hits(&self, applied: &[AppliedCorrection]) -> io::Result<()> {
-        if applied.is_empty() {
-            return Ok(());
-        }
-        let mut file = self.dictionary();
-        let mut changed = false;
-        for hit in applied {
-            let trigger = hit.hear.to_lowercase();
-            if let Some(pair) = file
-                .corrections
-                .iter_mut()
-                .find(|pair| pair.hear.to_lowercase() == trigger)
-            {
-                pair.hit_count += 1;
-                changed = true;
-            }
-        }
-        if changed {
-            self.save_dictionary(&file)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn scratch() -> Stores {
-        Stores::new(std::env::temp_dir().join(format!("huh-store-{}", uuid::Uuid::new_v4())))
-    }
-
-    fn fired(hear: &str) -> AppliedCorrection {
-        AppliedCorrection {
-            hear: hear.into(),
-            id: uuid::Uuid::new_v4(),
-            matched: hear.into(),
-            write: String::new(),
-        }
-    }
-
-    #[test]
-    fn a_rule_that_fires_is_counted_whatever_its_case() {
-        let stores = scratch();
-        stores.add_correction("terra form", "Terraform").unwrap();
-        stores.add_correction("jason", "JSON").unwrap();
-        stores
-            .record_hits(&[fired("Terra Form"), fired("terra form")])
-            .unwrap();
-        let counts: Vec<(String, u32)> = stores
-            .dictionary()
-            .corrections
-            .into_iter()
-            .map(|pair| (pair.hear, pair.hit_count))
-            .collect();
-        let _ = fs::remove_dir_all(&stores.root);
-        assert_eq!(
-            counts,
-            vec![("terra form".to_string(), 2), ("jason".to_string(), 0)]
-        );
-    }
-
-    #[test]
-    fn a_hit_from_an_alias_writes_nothing() {
-        let stores = scratch();
-        stores.record_hits(&[fired("geetansh")]).unwrap();
-        let written = stores.dictionary_path().exists();
-        let _ = fs::remove_dir_all(&stores.root);
-        assert!(!written);
     }
 }

@@ -31,10 +31,18 @@ pub const SPEECH_RATE: u32 = 16_000;
 #[derive(Default)]
 pub struct Meter {
     history: Mutex<Vec<Level>>,
+    /// Every level ever pushed, so a reader can tell a stream that has gone
+    /// quiet from one still talking.
+    pushes: std::sync::atomic::AtomicUsize,
 }
 
 impl Meter {
+    pub fn pushes(&self) -> usize {
+        self.pushes.load(Ordering::Relaxed)
+    }
+
     pub fn push(&self, value: Level) {
+        self.pushes.fetch_add(1, Ordering::Relaxed);
         let mut history = self.history.lock();
         history.push(value);
         if history.len() > HISTORY_DEPTH {
@@ -78,6 +86,14 @@ pub fn input_problem() -> Option<String> {
     platform::input_problem()
 }
 
+/// The default input's name as Windows shows it, "Microphone Array (Realtek(R)
+/// Audio)", or nothing when there is no input at all.
+pub fn default_input_name() -> Option<String> {
+    cpal::default_host()
+        .default_input_device()
+        .and_then(|device| device.name().ok())
+}
+
 /// One utterance, as the device delivered it: mixed to mono, at its own rate.
 ///
 /// The samples are kept whole rather than streamed on, because the recogniser
@@ -117,6 +133,86 @@ impl Recording {
     /// The recording at the rate the recogniser reads.
     pub fn for_speech(&self) -> Vec<f32> {
         resample(&self.samples, self.rate, SPEECH_RATE)
+    }
+
+    /// What the PC played, summed into this recording: the Mac's mixed
+    /// source, for a video and a remark about it as one sentence.
+    ///
+    /// Summed, not averaged. Halving both would make a quiet room quieter for
+    /// nothing; a recogniser cares about the shape of speech, and the one
+    /// thing that really destroys it is clipping, so the sum is clamped. The
+    /// microphone sets the length: past the end of what the PC played is
+    /// silence, which is the right answer when it was playing nothing.
+    pub fn mixed_with(mut self, other: &Recording) -> Recording {
+        if other.samples.is_empty() || self.samples.is_empty() {
+            return self;
+        }
+        let other = resample(&other.samples, other.rate, self.rate);
+        for (sample, added) in self.samples.iter_mut().zip(other.iter()) {
+            *sample = (*sample + added).clamp(-1.0, 1.0);
+        }
+        self
+    }
+}
+
+/// What the PC is playing, while the key is held, for "Your PC as well as
+/// you".
+///
+/// The microphone is the stream that must work: this one opens beside it,
+/// and when it cannot, dictation carries on from the microphone alone.
+#[derive(Default)]
+pub struct PcTap {
+    pub meter: Arc<Meter>,
+    heard: Arc<Mutex<Vec<f32>>>,
+    rate: Arc<AtomicU32>,
+    stream: Mutex<Option<crate::capture::Stream>>,
+}
+
+impl PcTap {
+    pub fn open(&self) -> Result<(), String> {
+        drop(self.stream.lock().take());
+        self.heard.lock().clear();
+        self.meter.clear();
+        let heard = self.heard.clone();
+        let meter = self.meter.clone();
+        let rate = self.rate.clone();
+        let stream = crate::capture::Stream::open(
+            crate::capture::Source::System,
+            Box::new(move |block, block_rate| {
+                rate.store(block_rate, Ordering::Relaxed);
+                meter.push(level_of(block));
+                heard.lock().extend_from_slice(block);
+            }),
+        )?;
+        *self.stream.lock() = Some(stream);
+        Ok(())
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.stream.lock().is_some()
+    }
+
+    /// Closes the tap and hands over what it heard. Harmless when it was
+    /// never opened.
+    pub fn close(&self) -> Recording {
+        drop(self.stream.lock().take());
+        self.meter.clear();
+        Recording {
+            samples: std::mem::take(&mut *self.heard.lock()),
+            rate: self.rate.load(Ordering::Relaxed).max(1),
+        }
+    }
+
+    /// What it has heard from `from` seconds in, without stopping: the part
+    /// that lines up with a preview's window of the microphone.
+    pub fn since(&self, from: f64) -> Recording {
+        let rate = self.rate.load(Ordering::Relaxed).max(1);
+        let heard = self.heard.lock();
+        let start = ((from.max(0.0) * rate as f64) as usize).min(heard.len());
+        Recording {
+            samples: heard[start..].to_vec(),
+            rate,
+        }
     }
 }
 
@@ -162,7 +258,10 @@ impl Recorder {
     /// the utterance is longer than the window, the window starts at the
     /// quietest moment in its first second, so it opens between two words
     /// rather than inside one.
-    pub fn recent(&self, seconds: f64) -> Recording {
+    ///
+    /// Also says how far into the utterance the window starts, in seconds, so
+    /// the PC's sound can be lined up with it.
+    pub fn recent(&self, seconds: f64) -> (Recording, f64) {
         let rate = self.rate.load(Ordering::Relaxed);
         let window = (seconds * rate as f64) as usize;
         let heard = self.heard.lock();
@@ -171,10 +270,14 @@ impl Recorder {
         } else {
             0
         };
-        Recording {
-            samples: heard[start..].to_vec(),
-            rate,
-        }
+        let from = start as f64 / rate.max(1) as f64;
+        (
+            Recording {
+                samples: heard[start..].to_vec(),
+                rate,
+            },
+            from,
+        )
     }
 
     /// Opens the default input, and returns once audio is flowing or with the
@@ -241,7 +344,7 @@ fn run(
 
 /// Where, in the second of audio after `from`, it is quietest, to the nearest
 /// 20 ms.
-fn quietest_near(samples: &[f32], from: usize, rate: u32) -> usize {
+pub fn quietest_near(samples: &[f32], from: usize, rate: u32) -> usize {
     let frame = (rate as usize / 50).max(1);
     let end = (from + rate as usize).min(samples.len());
     (from..end.saturating_sub(frame))
