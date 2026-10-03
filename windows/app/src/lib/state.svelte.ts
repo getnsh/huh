@@ -71,7 +71,7 @@ export const core = $state({
     streamed: "",
     failure: null,
   } as SummaryState,
-  summaryModel: { ready: false, busy: false, text: "" } as SummaryModel,
+  summaryModel: { ready: false, busy: false, downloaded: false, text: "" } as SummaryModel,
   input: { hasInput: true, name: null, problem: null } as AudioInput,
 });
 

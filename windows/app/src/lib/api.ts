@@ -52,6 +52,9 @@ export const api = {
   dismissSummaryFailure: () => invoke<void>("dismiss_summary_failure"),
   summaryModel: () => invoke<SummaryModel>("summary_model"),
   unloadSummaryModel: () => invoke<void>("unload_summary_model"),
+  /* Copies the meeting and a prompt, and opens the assistant's site. */
+  summaryHandoff: (id: Uuid, provider: "chatGPT" | "claude") =>
+    invoke<void>("summary_handoff", { id, provider }),
 
   /* Dictionary */
   dictionary: () => invoke<DictionaryState>("dictionary_state"),

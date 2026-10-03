@@ -55,6 +55,8 @@ pub struct SummaryState {
 pub struct SummaryModel {
     pub ready: bool,
     pub busy: bool,
+    /// On disk, so a summary can start without asking to download anything.
+    pub downloaded: bool,
     pub text: String,
 }
 
@@ -120,7 +122,12 @@ fn describe(held: &Held) -> SummaryModel {
         Held::Ready => (true, false, "Ready. Runs on this PC, offline.".to_string()),
         Held::Failed(why) => (false, false, why.clone()),
     };
-    SummaryModel { ready, busy, text }
+    SummaryModel {
+        ready,
+        busy,
+        downloaded: ready || fetch::present(&llm::directory(), &llm::PARTS),
+        text,
+    }
 }
 
 fn downloading(done: u64, total: u64) -> String {
@@ -384,6 +391,74 @@ fn readable_download_error(why: &str) -> String {
     }
 }
 
+/* ── Handing a meeting to a chat assistant ── */
+
+/// The Mac's hand-off prompt, word for word: the same headings the model here
+/// writes under, so a summary made either way reads the same.
+fn handoff_prompt(transcript: &Transcript) -> String {
+    let body = if transcript.segments.is_empty() {
+        transcript.text.clone()
+    } else {
+        transcript
+            .segments
+            .iter()
+            .map(|s| format!("[{}] {}", timecode(s.start), s.text))
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            )
+    };
+    format!(
+        "Below is a transcript of a meeting, produced by a speech recogniser. It is          imperfect: names may be misspelled and some sentences are garbled. Work only          from what is there — never invent a name, a date, an owner or a decision.
+
+         Write it up under exactly these headings:
+
+         ## In one line
+One sentence: what this was about and what came of it.
+
+         ## What was discussed
+Three to five short bullets.
+
+         ## Decisions
+Bullets. Only what was actually settled.
+
+         ## Action items
+Bullets formatted \"Owner — task\". Write \"Unassigned\" when no owner is named.
+
+         ## Open questions
+Bullets.
+
+         Transcript:
+{body}"
+    )
+}
+
+/// The Mac's segment timecode: rounded to the second, minutes and seconds,
+/// the minutes running on past the hour ("62:05").
+fn timecode(seconds: f64) -> String {
+    let total = seconds.max(0.0).round() as u64;
+    format!("{:02}:{:02}", total / 60, total % 60)
+}
+
+/// Copies the meeting and the prompt, then opens the assistant's site to
+/// paste it into.
+///
+/// The one path where a transcript leaves the PC, and deliberately manual, as
+/// on the Mac: nothing is sent by this application, there is no key to keep,
+/// and the person pastes, so sees, exactly what goes.
+#[tauri::command]
+pub fn summary_handoff(app: State<'_, Shared>, id: Uuid, provider: String) -> Done {
+    let url = match provider.as_str() {
+        "chatGPT" => "https://chatgpt.com/",
+        "claude" => "https://claude.ai/new",
+        other => return Err(format!("No assistant called {other}.")),
+    };
+    let transcript = find(&app, id)?;
+    crate::inject::copy(&handoff_prompt(&transcript))?;
+    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 /* ── Commands ── */
 
 type Done = Result<(), String>;
@@ -467,6 +542,30 @@ mod tests {
             assert!(HEADINGS.contains(heading));
         }
         assert!(HEADINGS.starts_with("Use exactly these headings, in this order. If a section has nothing, write \"None recorded.\" under it."));
+    }
+
+    #[test]
+    fn the_handoff_prompt_carries_the_timeline() {
+        let transcript: Transcript = serde_json::from_value(serde_json::json!({
+            "raw": "", "text": "Hello there. Bye.",
+            "segments": [
+                { "start": 4.2, "text": "Hello there." },
+                { "start": 3725.0, "text": "Bye." }
+            ]
+        }))
+        .unwrap();
+        let prompt = handoff_prompt(&transcript);
+        assert!(prompt
+            .starts_with("Below is a transcript of a meeting, produced by a speech recogniser."));
+        assert!(prompt.ends_with(
+            "Transcript:
+[00:04] Hello there.
+[62:05] Bye."
+        ));
+        assert!(prompt.contains(
+            "## Action items
+Bullets formatted \"Owner — task\"."
+        ));
     }
 
     #[test]

@@ -24,6 +24,7 @@
   import FailureBanner from "./FailureBanner.svelte";
   import LearningBadge from "./LearningBadge.svelte";
   import SummaryCard from "./SummaryCard.svelte";
+  import SummaryChoiceCard from "./SummaryChoiceCard.svelte";
   import TranscriptActions from "./TranscriptActions.svelte";
   import { api } from "../../lib/api";
   import { clock, timecode, wordCount } from "../../lib/format";
@@ -65,7 +66,22 @@
     return core.summary.runningFor === null ? core.summary.failure : null;
   });
 
+  /* The transcript whose first summary is waiting on the download question.
+     Asked only while the model is not on disk and nothing is fetching it. */
+  let choosing = $state(null as Uuid | null);
+
+  function pressed() {
+    const model = core.summaryModel;
+    if (!model.downloaded && !model.busy && core.summary.runningFor === null) {
+      refusal = null;
+      choosing = transcript.id;
+      return;
+    }
+    summarise();
+  }
+
   async function summarise() {
+    choosing = null;
     if (asking) return;
     asking = true;
     refusal = null;
@@ -135,7 +151,7 @@
       <!-- Pressable whatever else is running, as on the Mac: a press either
            starts a summary or is told why not, where a disabled button would
            say neither. -->
-      <Button variant="secondary" onclick={summarise}>
+      <Button variant="secondary" onclick={pressed}>
         {transcript.summary ? "Redo Summary" : "Summarise"}
       </Button>
     {/if}
@@ -145,6 +161,12 @@
 
   {#key transcript.id}
     <div class="body">
+      {#if choosing === transcript.id && !summarising}
+        <div class="summary">
+          <SummaryChoiceCard {transcript} onaccept={summarise} onclose={() => (choosing = null)} />
+        </div>
+      {/if}
+
       {#if summarising || transcript.summary}
         <div class="summary"><SummaryCard {transcript} running={summarising} /></div>
       {/if}

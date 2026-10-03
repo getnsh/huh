@@ -223,6 +223,7 @@ pub fn run() {
             summary::dismiss_summary_failure,
             summary::summary_model,
             summary::unload_summary_model,
+            summary::summary_handoff,
         ])
         .on_window_event(|window, event| {
             // Alt+F4 and the taskbar's "Close window" hide the main window,

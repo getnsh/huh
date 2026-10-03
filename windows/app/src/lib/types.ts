@@ -151,7 +151,7 @@ export type SummaryState = {
 
 /* The model that writes them: `busy` while it downloads or loads, `ready`
    once it is in memory, and `text` the sentence Settings shows either way. */
-export type SummaryModel = { ready: boolean; busy: boolean; text: string };
+export type SummaryModel = { ready: boolean; busy: boolean; downloaded: boolean; text: string };
 
 /* Named before anything is downloaded, so it lives here rather than in the
    core's sentences. Windows has this one writer and no other. */
