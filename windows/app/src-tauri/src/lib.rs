@@ -136,6 +136,19 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // The main window comes back where it was left, at the size it was
+        // left, as the Mac's does by autosaving its frame. Only that window,
+        // and only its frame: whether it shows at launch is the app's call.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .with_denylist(&["hud", "panel", "settings"])
+                .build(),
+        )
         .manage(shared.clone())
         .invoke_handler(tauri::generate_handler![
             preview_corrections,
