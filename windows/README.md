@@ -18,6 +18,7 @@ windows/
   crates/huh-core/     corrections, cleanup, edit distance, the stores
   app/src-tauri/       the Tauri app, the keyboard hook, audio, insertion
   app/src/             the interface, in Svelte 5
+  setup/               the installer and uninstaller, one program
 ```
 
 Everything timing-sensitive is in Rust. The interface only draws and sends
@@ -54,11 +55,44 @@ npm install
 npm run tauri dev       # or: cargo run -p huh
 ```
 
+The setup, with the app inside it, lands in
+`windows/target/release/huh-setup.exe`:
+
+```bash
+cd windows/app
+npm run setup           # tauri build, then the setup around it
+```
+
 The portable core can be tested anywhere, including on a Mac:
 
 ```bash
 cargo test --manifest-path windows/Cargo.toml -p huh-core
 ```
+
+## The setup
+
+A program of its own rather than the stock NSIS wizard, so the first thing
+anyone sees of huh? looks like huh?: the website's Chladni plate fills the
+window, and the sand is retuned toward a more intricate figure as each step of
+the install runs, then settles. Once it is installed, the overlay demonstrates
+itself beside the key to hold. Windows' Animation effects switch is followed
+while the window is open; with it off, every state is drawn still.
+
+- **Per user, no administrator.** The app goes to `%LOCALAPPDATA%\Huh`, the
+  folder the stock installer used, so it updates over either. It adds a Start
+  entry, an optional desktop shortcut, and the entry in Installed apps.
+- **Update and reinstall** say so, and say what they keep. A copy that is
+  running is closed first.
+- **Uninstall** is the same program, copied beside the app as `uninstall.exe`;
+  Installed apps starts it, and so does the Uninstall button the setup shows
+  once huh? is installed. Transcripts, the dictionary and the downloaded
+  models stay unless the person asks for them to go. It removes itself last.
+- **Without a window**, for package managers: `--silent` (or `/S`) installs,
+  `--uninstall --silent` removes, with the exit code to say how it went.
+
+`HUH_SETUP_TEST=<folder>` redirects every path and the registry entry into
+that folder and a private key, so the setup can be run end to end without
+touching a real install.
 
 ## Speech recognition
 

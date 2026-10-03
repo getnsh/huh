@@ -5,7 +5,7 @@
 # tests on any platform, so the port is verifiable on the machine it is written
 # on. `huh` is the Tauri application and everything that touches Windows.
 [workspace]
-members = ["crates/huh-core", "app/src-tauri"]
+members = ["crates/huh-core", "app/src-tauri", "setup"]
 resolver = "2"
 
 [workspace.package]
@@ -21,3 +21,12 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 fancy-regex = "0.13"
+
+# The setup's build script compresses the whole app at zstd's level 19.
+# Build scripts' dependencies are otherwise built unoptimised, and the
+# compressor's C code at -O0 turns seconds into minutes.
+[profile.dev.package.zstd-sys]
+opt-level = 3
+
+[profile.release.package.zstd-sys]
+opt-level = 3

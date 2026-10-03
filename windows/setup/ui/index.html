@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<!-- Nothing here is fetched: the fonts are inlined at build time, the rest
+     is this file. The policy makes that a rule rather than a habit. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; img-src data:">
+<title>huh? setup</title>
+<style>
+/* The app's own faces, as it bundles them: Inter with its optical-size
+   axis, so the big mark tightens the way a display cut should, and
+   JetBrains Mono for the metadata voice. */
+@font-face{font-family:"Inter Variable";font-style:normal;font-weight:100 900;font-display:block;
+  src:url(data:font/woff2;base64,/*INTER*/) format("woff2-variations")}
+@font-face{font-family:"JetBrains Mono Variable";font-style:normal;font-weight:100 800;font-display:block;
+  src:url(data:font/woff2;base64,/*MONO*/) format("woff2-variations")}
+
+/* Tokens are the website's, which are the app's: the grey ladder and one
+   accent that means live. Two curves, nothing else moves. */
+:root{
+  --base:#0A0A0A;--surface:#121212;--raised:#191919;--hover:#222;--pressed:#2B2B2B;
+  --border:#262626;--soft:#1C1C1C;--island:#141414;
+  --t1:#ECECEC;--t2:#A2A2A2;--t3:#8C8C8C;
+  --live:#9E7BFF;--live2:#C4B0FF;--bad:#E5534B;
+  --fill:#F5F5F5;--on-fill:#0A0A0A;
+  --sans:"Inter Variable","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono Variable","Cascadia Mono",Consolas,ui-monospace,monospace;
+  --spring:cubic-bezier(.22,1,.36,1);--quick:cubic-bezier(.16,1,.3,1);
+  --gap:14px;--island-h:78px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--base)}
+body{color:var(--t1);font:400 14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  user-select:none;cursor:default}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--live);outline-offset:3px}
+
+/* ── The plate ──────────────────────────────────────────── */
+#plate{position:fixed;inset:0;width:100%;height:100%;display:block;
+  opacity:0;transition:opacity .46s var(--quick)}
+body.in #plate{opacity:1}
+body.gone #plate{opacity:.45}
+/* No scrim box behind the copy: one soft ellipse that reaches nothing by
+   70% of its radius, so it has no edge to see, and a halo on the type. */
+.veil{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(64% 54% at 24% 70%,rgba(10,10,10,.74),rgba(10,10,10,0) 70%)}
+.tc,h1,.lede,.hint{text-shadow:0 1px 20px rgba(10,10,10,.92),0 0 42px rgba(10,10,10,.7)}
+
+/* ── Title bar ──────────────────────────────────────────── */
+.bar{position:fixed;top:0;left:0;right:0;height:46px;z-index:4;display:flex;
+  align-items:center;justify-content:space-between;padding:0 8px 0 34px}
+.hint{margin:0;font:400 12px/1 var(--mono);color:var(--t3);display:flex;align-items:center;gap:9px;
+  transition:opacity .25s var(--quick)}
+.hint i{width:6px;height:6px;border-radius:50%;background:var(--live);display:block;
+  animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+/* Nothing to invite the pointer to while the plate holds still. */
+.still .hint{opacity:0}
+.ctls{display:flex;gap:2px}
+.ctl{width:40px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--t2);
+  display:grid;place-items:center;
+  transition:background .16s var(--quick),color .16s var(--quick),transform .16s var(--quick),opacity .2s var(--quick)}
+.ctl:hover{background:var(--hover);color:var(--t1)}
+.ctl:active{transform:scale(.985);background:var(--pressed)}
+.ctl[disabled]{opacity:.3;pointer-events:none}
+.ctl svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:round}
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero{position:fixed;left:34px;right:34px;z-index:2;pointer-events:none;
+  bottom:calc(var(--island-h) + var(--gap) + 30px)}
+.tc{font:400 12px/1 var(--mono);letter-spacing:.08em;color:var(--t3);display:flex;
+  align-items:center;gap:10px;margin:0 0 20px}
+.tc b{color:var(--live);font-weight:400;font-variant-numeric:tabular-nums;transition:color .25s var(--quick)}
+.tc span{height:1px;flex:1;max-width:52px;background:linear-gradient(90deg,#3A3A3A,transparent)}
+.tc em{font-style:normal}
+body[data-state="failed"] .tc b{color:var(--bad)}
+h1{margin:0 0 0 -7px;font-size:152px;line-height:.84;letter-spacing:-.055em;font-weight:600}
+h1 .q{color:var(--live);display:inline-block;will-change:transform}
+.lede{margin:24px 0 0;font-size:17px;line-height:1.5;color:var(--t2);max-width:50ch;min-height:51px}
+body[data-state="done"] .lede{max-width:43ch}
+.lede b{color:var(--t1);font-weight:500}
+.swap{display:inline-block;transition:opacity .3s var(--quick),transform .46s var(--spring)}
+.swap.out{opacity:0;transform:translateY(5px);transition-duration:.14s}
+.key{display:inline-block;font:500 13px/1 var(--mono);color:var(--t1);padding:4px 8px 5px;margin:0 1px;
+  border:1px solid var(--border);border-radius:8px;background:var(--raised);text-shadow:none;
+  vertical-align:1px;
+  transition:border-color .14s var(--quick),color .14s var(--quick),background .14s var(--quick),box-shadow .14s var(--quick)}
+.key.held{border-color:var(--live);color:var(--live);background:rgba(158,123,255,.10);
+  box-shadow:0 0 0 4px rgba(158,123,255,.07)}
+
+/* First sight: a short rise and a fade, in reading order. */
+.rise{opacity:0;transform:translateY(12px)}
+body.in .rise{opacity:1;transform:none;
+  transition:opacity .46s var(--quick) var(--d,0ms),transform .46s var(--spring) var(--d,0ms)}
+
+/* ── The overlay, demonstrating itself once it is installed ── */
+.pill{position:fixed;right:34px;top:178px;width:300px;padding:14px 18px;border-radius:22px;z-index:2;
+  background:#141414;border:1px solid #2E2E2E;pointer-events:none;
+  box-shadow:0 14px 34px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(6px);
+  transition:width .34s var(--spring),padding .34s var(--spring),opacity .18s var(--quick),
+             transform .46s var(--spring),border-color .14s var(--quick),box-shadow .14s var(--quick)}
+.pill.on{opacity:1;transform:none}
+.pill.listening{border-color:rgba(158,123,255,.5);
+  box-shadow:0 14px 34px rgba(0,0,0,.6),0 0 24px rgba(158,123,255,.2)}
+.pill.done{border-color:rgba(158,123,255,.55)}
+.pill.wide{width:344px;padding:16px 18px}
+.pill-head{display:flex;align-items:center;gap:14px;min-height:26px}
+.pill-cap{font-size:12.5px;font-weight:500;color:var(--t2);white-space:nowrap}
+.pill.listening .pill-cap{color:var(--live)}
+.pill-done{display:none;align-items:center;gap:10px;min-height:26px}
+.pill.done .pill-done{display:flex}
+.pill.done .pill-head{display:none}
+.pill-done svg{width:13px;height:13px;flex:none;fill:var(--live)}
+.pill-done span{font-size:13px;font-weight:500;color:var(--t1)}
+.pill-partial{font-size:16px;line-height:1.42;color:var(--t1);max-height:0;opacity:0;overflow:hidden;
+  transition:max-height .26s var(--spring),opacity .1s var(--quick),margin-top .26s var(--spring)}
+.pill.wide .pill-partial{max-height:96px;opacity:1;margin-top:12px}
+
+/* The level meter: 28 bars, newest on the right and brightest. */
+.bars{display:flex;align-items:center;gap:2.5px;height:26px;flex:none;width:151.5px}
+.bars i{width:3px;border-radius:1.5px;background:var(--live);display:block;height:3px;flex:none}
+
+/* ── The island ─────────────────────────────────────────── */
+/* Solid, not blurred: a live plate behind a blurred panel is re-blurred
+   every frame, and costs more than the plate. */
+.island{position:fixed;left:var(--gap);right:var(--gap);bottom:var(--gap);height:var(--island-h);z-index:3;
+  background:var(--island);border:1px solid var(--border);border-radius:15px;overflow:hidden;
+  box-shadow:0 12px 38px rgba(0,0,0,.62),0 2px 6px rgba(0,0,0,.5)}
+.track{position:absolute;left:16px;right:16px;top:0;height:1px;opacity:0;transition:opacity .3s var(--quick)}
+body[data-state="work"] .track,body[data-state="done"] .track{opacity:1}
+body[data-state="done"] .track{opacity:0;transition-delay:.4s}
+.track i{position:absolute;left:0;top:0;bottom:0;width:0;
+  background:linear-gradient(90deg,rgba(158,123,255,.15),var(--live) 18%);box-shadow:0 0 8px rgba(158,123,255,.45)}
+.track b{position:absolute;top:0;left:0;width:1.5px;height:7px;margin-left:-1px;background:var(--live2);
+  box-shadow:0 0 9px rgba(196,176,255,.7)}
+.pane{position:absolute;inset:0;display:flex;align-items:center;gap:18px;padding:0 15px 0 22px;
+  opacity:0;visibility:hidden;transform:translateY(8px);
+  transition:opacity .16s var(--quick),transform .46s var(--spring),visibility 0s linear .46s}
+.pane.on{opacity:1;visibility:visible;transform:none;
+  transition:opacity .3s var(--quick) .07s,transform .46s var(--spring) .04s,visibility 0s}
+.grow{flex:1;min-width:0}
+.txt{min-width:0;display:grid;gap:5px}
+.title{font-size:14px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font:400 11.5px/1.35 var(--mono);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums}
+.sub.err{color:var(--t2);white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.path{font:400 12.5px/1 var(--mono);color:var(--t1)}
+.where{flex:1;min-width:0;display:grid;gap:7px}
+.pct{font:400 12.5px/1 var(--mono);color:var(--t1);font-variant-numeric:tabular-nums;min-width:4ch;text-align:right;padding-right:7px}
+svg.mark{width:24px;height:24px;flex:none;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+svg.mark.ok{stroke:var(--live)}
+svg.mark.ok circle{fill:rgba(158,123,255,.12)}
+svg.mark.ok path{stroke-dasharray:14;stroke-dashoffset:14}
+.pane.on svg.mark.ok path{stroke-dashoffset:0;transition:stroke-dashoffset .46s var(--spring) .2s}
+svg.mark.no{stroke:var(--bad)}
+svg.mark.no circle{fill:rgba(229,83,75,.1)}
+
+/* Buttons: light fill for the one thing to do, raised for the other,
+   bare for the aside. All three share the press. */
+.btn{height:36px;padding:0 18px;border-radius:8px;border:1px solid transparent;flex:none;
+  font-size:13.5px;font-weight:500;white-space:nowrap;
+  transition:background .16s var(--quick),border-color .16s var(--quick),color .16s var(--quick),transform .16s var(--quick)}
+.btn:active{transform:scale(.985)}
+.b1{background:var(--fill);color:var(--on-fill)}
+.b1:hover{background:#FFFFFF}
+.b2{background:var(--raised);border-color:var(--border);color:var(--t1);padding:0 15px}
+.b2:hover{background:var(--hover)}
+.b3{background:transparent;color:var(--t3);font-size:12px;height:auto;padding:5px 9px}
+.b3:hover{color:var(--t1)}
+.b3:active{background:var(--pressed)}
+[hidden]{display:none!important}
+
+/* Switches are monochrome: on is the light fill, the way the primary
+   button is. Colour stays for what is live. */
+.opts{display:grid;gap:4px;min-width:0}
+.sw{display:flex;align-items:center;gap:11px;background:none;border:0;border-radius:8px;
+  padding:6px 9px;margin:0 -9px;color:var(--t2);font-size:13px;line-height:1.2;text-align:left;
+  transition:color .16s var(--quick),background .16s var(--quick)}
+.sw:hover{color:var(--t1);background:var(--raised)}
+.sw i{position:relative;width:30px;height:18px;border-radius:9px;flex:none;
+  background:var(--raised);border:1px solid var(--border);
+  transition:background .2s var(--quick),border-color .2s var(--quick)}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--t3);transition:transform .46s var(--spring),background .2s var(--quick)}
+.sw[aria-checked="true"]{color:var(--t1)}
+.sw[aria-checked="true"] i{background:var(--fill);border-color:var(--fill)}
+.sw[aria-checked="true"] i::after{transform:translateX(12px);background:var(--on-fill)}
+.sw em{font-style:normal;font:400 11.5px/1 var(--mono);color:var(--t3);margin-left:6px}
+
+.still *,.still *::before,.still *::after{transition-duration:1ms!important;transition-delay:0s!important;animation:none!important}
+</style>
+</head>
+<body data-state="welcome">
+<canvas id="plate" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+
+<header class="bar">
+  <p class="hint"><i></i><span>move your cursor — the plate is listening</span></p>
+  <div class="ctls">
+    <button class="ctl" data-act="minimize" aria-label="Minimise" tabindex="-1">
+      <svg viewBox="0 0 10 10"><path d="M1 5.5h8"/></svg></button>
+    <button class="ctl" id="closeBtn" data-act="close" aria-label="Close" tabindex="-1">
+      <svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button>
+  </div>
+</header>
+
+<main class="hero">
+  <p class="tc rise" style="--d:0ms"><b class="swap" id="tcNum">00:01</b><span></span><em class="swap" id="tcLabel">install</em></p>
+  <h1 class="rise" style="--d:60ms">huh<span class="q" id="qmark">?</span></h1>
+  <p class="lede rise" style="--d:120ms"><span class="swap" id="lede"></span></p>
+</main>
+
+<div class="pill" id="pill" aria-hidden="true">
+  <div class="pill-head"><div class="bars" id="pillBars"></div><span class="pill-cap" id="pillCap">Listening</span></div>
+  <div class="pill-done">
+    <svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.9 5.7-4.6 5.1a.8.8 0 0 1-1.2 0L4 8.6a.8.8 0 1 1 1.2-1l1.5 1.7 4-4.5a.8.8 0 1 1 1.2 1Z"/></svg>
+    <span>Inserted into Notepad</span>
+  </div>
+  <div class="pill-partial" id="pillPartial"></div>
+</div>
+
+<section class="island rise" style="--d:180ms" aria-live="polite">
+  <div class="track"><i id="fill"></i><b id="head"></b></div>
+
+  <div class="pane" data-pane="welcome">
+    <div class="where">
+      <div class="path" id="path"></div>
+      <div class="sub" id="whereSub"></div>
+    </div>
+    <button class="sw" role="switch" aria-checked="false" id="swDesktop"><i></i><span>Desktop shortcut</span></button>
+    <button class="btn b3" data-act="toRemove" id="toRemove" hidden>Uninstall</button>
+    <button class="btn b1" data-act="install" data-primary id="installBtn">Install</button>
+  </div>
+
+  <div class="pane" data-pane="remove">
+    <div class="opts">
+      <button class="sw" role="switch" aria-checked="false" id="swData"><i></i><span>Also delete transcripts and the dictionary</span></button>
+      <button class="sw" role="switch" aria-checked="false" id="swModels"><i></i><span>Also delete downloaded models<em id="modelsSize"></em></span></button>
+      <div class="sub" id="optsNone" hidden>It kept nothing else on this PC.</div>
+    </div>
+    <div class="grow"></div>
+    <button class="btn b2" data-act="back" id="backBtn">Cancel</button>
+    <button class="btn b1" data-act="remove" data-primary>Uninstall</button>
+  </div>
+
+  <div class="pane" data-pane="work">
+    <div class="bars" id="workBars"></div>
+    <div class="txt">
+      <div class="title" id="step">Starting</div>
+      <div class="sub" id="stepSub">&nbsp;</div>
+    </div>
+    <div class="grow"></div>
+    <div class="pct" id="pct">0%</div>
+  </div>
+
+  <div class="pane" data-pane="done">
+    <svg class="mark ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.2"/><path d="M7.6 12.3l3 3.1 5.9-6.4"/></svg>
+    <div class="txt">
+      <div class="title" id="doneTitle"></div>
+      <div class="sub" id="doneSub"></div>
+    </div>
+    <div class="grow"></div>
+    <button class="btn b2" data-act="close" id="doneClose">Close</button>
+    <button class="btn b1" data-act="open" data-primary id="openBtn">Open huh?</button>
+  </div>
+
+  <div class="pane" data-pane="failed">
+    <svg class="mark no" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.2"/><path d="M12 7.2v5.6M12 16.5v.3"/></svg>
+    <div class="txt">
+      <div class="title">That didn’t finish.</div>
+      <div class="sub err" id="failText"></div>
+    </div>
+    <div class="grow"></div>
+    <button class="btn b2" data-act="close">Close</button>
+    <button class="btn b1" data-act="retry" data-primary>Try Again</button>
+  </div>
+</section>
+
+<script>
+(function(){
+'use strict';
+var HOST=!!(window.ipc&&window.ipc.postMessage);
+var S=window.SETUP||preview();
+/* Windows' "Animation effects" switch arrives as reduced motion. Then the
+   page lands on each state instead of moving to it, and it follows the
+   switch while it is open. */
+var STILL=matchMedia('(prefers-reduced-motion: reduce)');
+var REDUCE=STILL.matches;
+if(REDUCE)document.documentElement.classList.add('still');
+var $=function(id){return document.getElementById(id)};
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function post(o){if(HOST)window.ipc.postMessage(JSON.stringify(o));else rehearse(o)}
+function mb(b){return (b/1e6).toFixed(1)+' MB'}
+function size(b){return b>=1e9?(b/1e9).toFixed(1)+' GB':mb(b)}
+function clamp(v){return v<0?0:(v>1?1:v)}
+
+/* One pointer for everything that listens to it. */
+var P={x:innerWidth/2,y:innerHeight/2,v:0,has:false};
+addEventListener('pointermove',function(e){
+  var d=Math.hypot(e.clientX-P.x,e.clientY-P.y);
+  P.v=Math.min(1,P.v*0.74+d*0.030);P.x=e.clientX;P.y=e.clientY;P.has=true;
+},{passive:true});
+addEventListener('pointerdown',function(){P.v=1},{passive:true});
+document.documentElement.addEventListener('pointerleave',function(){P.has=false});
+
+/* ═══ What is being done, in words ═══════════════════════════ */
+function compare(a,b){
+  var x=String(a).split('.'),y=String(b).split('.');
+  for(var i=0;i<3;i++){var d=(parseInt(x[i],10)||0)-(parseInt(y[i],10)||0);if(d)return d<0?-1:1}
+  return 0;
+}
+var kind=S.installed==null?'install':(S.installed===''?'update':
+  ({'-1':'update','0':'reinstall','1':'replace'})[compare(S.installed,S.version)]);
+var KEY='<span class="key" id="key">'+esc(S.key||'Right Ctrl')+'</span>';
+var COPY={
+  install:{tc:'install',button:'Install',working:'installing',done:'ready',
+    lede:'Hold a key and talk. Let go, and the words are typed wherever your cursor is — heard and written on this PC, and sent nowhere.',
+    title:'huh? is installed.'},
+  update:{tc:'update',button:'Update',working:'updating',done:'ready',
+    lede:(S.installed?'Updates huh? '+esc(S.installed)+' to '+esc(S.version)+'.':'Updates huh? on this PC to '+esc(S.version)+'.')+
+      ' Your transcripts, dictionary and downloaded models stay exactly where they are.',
+    title:'huh? is updated to '+esc(S.version)+'.'},
+  reinstall:{tc:'reinstall',button:'Reinstall',working:'reinstalling',done:'ready',
+    lede:'huh? '+esc(S.version)+' is already on this PC. Installing it again replaces the app and keeps everything you’ve made with it.',
+    title:'huh? is reinstalled.'},
+  replace:{tc:'install',button:'Install '+esc(S.version),working:'installing',done:'ready',
+    lede:'This PC has huh? '+esc(S.installed)+', newer than this setup’s '+esc(S.version)+'. Installing replaces it and keeps everything you’ve made with it.',
+    title:'huh? '+esc(S.version)+' is installed.'},
+  remove:{tc:'uninstall',button:'Uninstall',working:'uninstalling',done:'uninstalled',
+    lede:'Takes huh? off this PC: the app, its place in Start and its entry in Installed apps. What you’ve made with it stays, unless you choose otherwise.',
+    title:'huh? is uninstalled.'}
+};
+/* What the progress labels from the installer are about, concretely. */
+var ABOUT={
+  'Closing huh?':'it was running',
+  'Adding the uninstaller':S.appDir+'\\uninstall.exe',
+  'Adding to Start':'Start › Huh',
+  'Registering with Windows':'Settings › Apps › Installed apps',
+  'Removing huh.exe':S.appDir+'\\huh.exe',
+  'Removing shortcuts':'Start and desktop',
+  'Unregistering':'Settings › Apps › Installed apps',
+  'Deleting the downloaded models':size(S.modelsSize||0),
+  'Deleting transcripts and the dictionary':S.dataDir
+};
+
+/* ═══ The plate ═══════════════════════════════════════════════
+   The website's Chladni figure. Every grain sits in a standing-wave
+   field, s(x,y) = sin(πnx)·sin(πmy) + sin(πmx)·sin(πny), and takes a
+   random step as long as |s|: violent where the plate moves, almost
+   still where it does not, so the grains find the nodal lines on
+   their own. Nothing draws the lines.
+
+   Here the note follows the work. The plate opens on the simplest
+   figure, and each step of the install retunes it toward a more
+   intricate one, so the sand is visibly rearranging while the app
+   is being written; at the end it settles. Uninstalling plays it
+   back down. */
+var plate=(function(){
+  var cv=$('plate'),g=cv.getContext('2d');
+  var W=0,H=0,PW=0,PH=0,img=null,px=null,COUNT=0,xs=null,ys=null,prev=null,pn=0;
+  var MODES=[[3,5],[4,6],[3,8],[5,7],[4,9],[6,8],[5,10],[7,9],[6,11],[8,11]];
+  /* The website's drive is 0.0052 with the sand's floor at 0.16 of it.
+     Driven a third harder over the same floor, the plate settles with
+     less loose sand between the lines and thinner lines, which a window
+     this size needs more than a page the size of a monitor. */
+  var FLOOR=0.16*0.0052,VB=0.0070,n=3,m=5,vib=VB;
+  /* The field is zero all along its top and left edges, and in a window
+     that small the sand piling there read as a lit frame. It is read a
+     little inside its edges instead. */
+  var M=0.035,SPAN=1-2*M;
+  var PI=Math.PI,sin=Math.sin,rnd=Math.random;
+  var self={goal:0,energy:0};
+
+  /* 32 steps from moving (dim grey) to at rest (violet), packed
+     0xAABBGGRR for direct pixel writes. */
+  var LUT=new Uint32Array(32);
+  for(var i=0;i<32;i++){
+    var k=i/31;
+    var r=Math.round(104+64*k),gg=Math.round(104+30*k),b=Math.round(112+143*k);
+    var a=Math.round(52+203*Math.pow(k,1.45));
+    LUT[i]=(a<<24)|(b<<16)|(gg<<8)|r;
+  }
+
+  /* Supersampled: the buffer is drawn above the display's resolution and
+     minified, so a grain lands as an antialiased fraction of a pixel. The
+     window is small, so it can afford to be finer than the website. */
+  function resize(){
+    W=cv.clientWidth||innerWidth;H=cv.clientHeight||innerHeight;
+    var dpr=Math.min(window.devicePixelRatio||1,2.5);
+    var s=Math.min(Math.max(dpr*1.6,2),3);
+    if(W*H*s*s>3.4e6)s=Math.sqrt(3.4e6/(W*H));
+    PW=Math.max(2,(W*s)|0);PH=Math.max(2,(H*s)|0);
+    cv.width=PW;cv.height=PH;
+    var buf=new ArrayBuffer(PW*PH*4);
+    px=new Uint32Array(buf);
+    img=new ImageData(new Uint8ClampedArray(buf),PW,PH);
+    var want=Math.round(PW*PH*0.026);
+    if(COUNT!==want){
+      COUNT=want;xs=new Float32Array(COUNT);ys=new Float32Array(COUNT);
+      for(var i=0;i<COUNT;i++){xs[i]=rnd();ys[i]=rnd();}
+    }
+    prev=new Int32Array(COUNT);pn=0;
+  }
+
+  function modeAt(p){
+    var f=clamp(p)*(MODES.length-1),i=Math.floor(f),u=f-i;
+    if(i>=MODES.length-1)return MODES[MODES.length-1];
+    u=u*u*(3-2*u);
+    var a=MODES[i],b=MODES[i+1];
+    return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u];
+  }
+
+  function geometry(){
+    var AR=W/H,kx=1,ky=1;
+    if(AR>=1)kx=AR<2.2?AR:2.2;else{var iv=1/AR;ky=iv<1.45?iv:1.45;}
+    return [n*kx,m*kx,n*ky,m*ky,AR];
+  }
+
+  /* Sand scattered at random takes seconds of shaking to find the lines,
+     and the figure should be there the moment the window is. A walk whose
+     step is a = max(vib·|s|, floor) comes to rest with its grains spread
+     as 1/a², so they are put down that way to begin with, and the plate
+     only has to jitter them into place. */
+  self.seed=function(){
+    var md=modeAt(self.goal);n=md[0];m=md[1];vib=VB;
+    var gm=geometry(),nx=gm[0],mx=gm[1],ny=gm[2],my=gm[3],floor=FLOOR;
+    for(var i=0;i<COUNT;i++){
+      var x,y,tries=0,p;
+      do{
+        x=rnd();y=rnd();
+        var X=M+x*SPAN,Y=M+y*SPAN;
+        var s=sin(PI*nx*X)*sin(PI*my*Y)+sin(PI*mx*X)*sin(PI*ny*Y);
+        var a=VB*(s<0?-s:s);if(a<floor)a=floor;
+        p=floor/a;p*=p;
+      }while(rnd()>p&&++tries<400);
+      xs[i]=x;ys[i]=y;
+    }
+  };
+
+  /* Unlike the website, the grains move whether or not the frame is
+     drawn, so the figure can be settled before the window is shown. */
+  function step(paint){
+    var md=modeAt(self.goal),tn=md[0],tm=md[1];
+    if(P.has){tn+=(P.x/W-0.5)*0.55;tm+=(P.y/H-0.5)*0.55;}
+    var tvib=VB+self.energy*0.016+P.v*0.030;
+    n+=(tn-n)*0.085;m+=(tm-m)*0.085;vib+=(tvib-vib)*0.16;
+    var gm=geometry(),nx=gm[0],mx=gm[1],ny=gm[2],my=gm[3],AR=gm[4];
+    var minWalk=FLOOR,has=P.has,phx=P.x/W,phy=P.y/H,inv=1/AR;
+    if(paint){for(var c=0;c<pn;c++)px[prev[c]]=0;pn=0;}
+    for(var i=0;i<COUNT;i++){
+      var x=xs[i],y=ys[i],X=M+x*SPAN,Y=M+y*SPAN;
+      var s=sin(PI*nx*X)*sin(PI*my*Y)+sin(PI*mx*X)*sin(PI*ny*Y);
+      var as=s<0?-s:s,a=vib*as;
+      /* A fingertip on the plate: the sand under the pointer jumps. */
+      if(has){
+        var dx=x-phx,dy=(y-phy)*inv,d2=dx*dx+dy*dy;
+        if(d2<0.0055)a+=(0.0055-d2)*(1.6+P.v*4.5);
+      }
+      if(a<minWalk)a=minWalk;
+      x+=(rnd()*2-1)*a;y+=(rnd()*2-1)*a;
+      if(x<0)x=-x;else if(x>1)x=2-x;
+      if(y<0)y=-y;else if(y>1)y=2-y;
+      xs[i]=x;ys[i]=y;
+      if(!paint)continue;
+      var ix=(x*PW)|0,iy=(y*PH)|0;
+      if(ix<0||iy<0||ix>=PW||iy>=PH)continue;
+      var lv=31-((as*20)|0);if(lv<0)lv=0;
+      var q=iy*PW+ix;
+      prev[pn++]=q;px[q]=LUT[lv];
+    }
+    if(paint)g.putImageData(img,0,0);
+  }
+
+  /* Settled in slices on timers rather than frames: the window is still
+     hidden, and a hidden page gets no animation frames. */
+  self.warm=function(steps,done){
+    var left=steps;
+    (function slice(){
+      var t0=performance.now();
+      while(left>0&&performance.now()-t0<12){step(false);left--;}
+      if(left>0)setTimeout(slice,0);else done();
+    })();
+  };
+  self.draw=function(){step(true)};
+  /* For reduced motion: no animation, just the figure the state ends on. */
+  self.land=function(){
+    var keep=P.has,e=self.energy;P.has=false;self.energy=0;
+    self.seed();
+    for(var w=0;w<30;w++)step(false);
+    P.has=keep;self.energy=e;step(true);
+  };
+  self.resize=resize;
+  resize();
+  return self;
+})();
+
+/* ═══ The level meter ═════════════════════════════════════════ */
+function Meter(box){
+  var N=28,bars=[],level=new Float32Array(N);
+  for(var i=0;i<N;i++){
+    var b=document.createElement('i');
+    b.style.opacity=(0.35+0.65*(i/(N-1))).toFixed(3);
+    box.appendChild(b);bars.push(b);
+  }
+  return function(v,now){
+    for(var i=0;i<N-1;i++)level[i]=level[i+1];
+    level[N-1]=v;
+    for(var j=0;j<N;j++){
+      /* height(for:phase:) from the app's Components.swift. */
+      var shaped=Math.pow(Math.min(1,level[j]),0.65);
+      var breath=2.2*(0.5+0.5*Math.sin(now/1000*3.1+j*0.42));
+      bars[j].style.height=(3+breath+shaped*21).toFixed(2)+'px';
+    }
+  };
+}
+var workMeter=Meter($('workBars')),pillMeter=Meter($('pillBars'));
+
+/* ═══ States ═══════════════════════════════════════════════════ */
+var flow=S.mode==='remove'?'remove':kind;   // which words, and which way the plate runs
+var state='welcome',busy=false,last=null,choice={};
+var target=0,shown=0,labels=[],finished=false,failure=null,doneAt=0;
+var END=0.66;   // how far up the modes an install climbs
+
+function swap(el,html){
+  if(el.innerHTML===html)return;
+  if(REDUCE){el.innerHTML=html;return;}
+  el.classList.add('out');
+  setTimeout(function(){el.innerHTML=html;el.classList.remove('out');},150);
+}
+function words(){
+  var c=COPY[flow],num='00:01',label=c.tc,lede=c.lede;
+  if(state==='work'){num='00:02';label=c.working;}
+  if(state==='failed'){num='00:02';label='stopped';lede='Setup stopped before it finished, and says why below.';}
+  if(state==='done'){
+    num='00:03';label=c.done;
+    if(flow==='remove'){
+      var keptData=S.hasData&&!choice.data,keptModels=S.modelsSize>0&&!choice.models;
+      lede=keptData&&keptModels?'huh? is gone from this PC. Your transcripts, dictionary and downloaded models are still here, if you come back.':
+        keptData?'huh? is gone from this PC. Your transcripts and dictionary are still in '+esc(S.dataDir)+', if you come back.':
+        keptModels?'huh? is gone from this PC. The downloaded models are still in '+esc(S.appDir)+'\\Models.':
+        'huh? is gone from this PC, and so is everything it kept.';
+    }else if(flow==='install'){
+      lede='Hold '+KEY+' and talk. Let go, and the words land wherever your cursor is. With its window closed, huh? waits by the clock.';
+    }else{
+      lede='Hold '+KEY+' and talk, as before. Everything you made with it is where you left it.';
+    }
+  }
+  swap($('tcNum'),num);swap($('tcLabel'),label);swap($('lede'),lede);
+}
+
+function enter(next){
+  state=next;
+  document.body.dataset.state=next;
+  var pane=next==='welcome'&&flow==='remove'?'remove':next;
+  [].forEach.call(document.querySelectorAll('.pane'),function(p){
+    p.classList.toggle('on',p.dataset.pane===pane);
+  });
+  $('closeBtn').disabled=next==='work';
+  document.body.classList.toggle('gone',next==='done'&&flow==='remove');
+  words();
+  if(next==='done')shapeDone();
+  if(next==='welcome'){
+    $('installBtn').textContent=COPY[flow==='remove'?kind:flow].button;
+    plate.goal=flow==='remove'?END:0;
+  }
+  if(next==='done'){doneAt=performance.now();plate.goal=flow==='remove'?0:END;}
+  if(REDUCE){
+    if(next!=='work')plate.land();
+    $('pill').className=next==='done'&&flow!=='remove'?'pill on done':'pill';
+  }
+  /* Focus follows the work once it has started, so Enter and Space carry
+     on from where the last press was; not on first sight, where a ring
+     around Install would read as something already happening. */
+  var primary=document.querySelector('.pane.on [data-primary]:not([hidden])');
+  if(primary&&next!=='work'&&started)setTimeout(function(){primary.focus({preventScroll:true})},60);
+}
+var started=false;
+
+function shapeDone(){
+  var c=COPY[flow];
+  $('doneTitle').textContent=c.title;
+  var sub=$('doneSub');sub.classList.remove('err');
+  if(flow==='remove'){
+    sub.textContent='Nothing is left in Start or Installed apps.';
+    $('openBtn').hidden=true;
+    $('doneClose').className='btn b1';$('doneClose').setAttribute('data-primary','');
+  }else{
+    sub.textContent='In Start as Huh · '+S.appDir;
+  }
+}
+
+function begin(cmd){
+  started=true;
+  last=cmd;busy=true;target=0;shown=0;labels=[];finished=false;failure=null;
+  enter('work');
+  post(cmd);
+}
+
+/* From the installer. */
+window.setupProgress=function(f,label){
+  if(f>target)target=f;
+  if(!labels.length||labels[labels.length-1][1]!==label)labels.push([f,label]);
+};
+window.setupFinished=function(err){
+  finished=true;failure=err||null;
+  if(!failure)target=1;
+  if(failure){busy=false;$('failText').textContent=failure;enter('failed');}
+};
+window.setupNotice=function(text){var s=$('doneSub');s.textContent=text;s.classList.add('err');};
+
+/* ── Controls ── */
+var swDesktop=$('swDesktop'),swData=$('swData'),swModels=$('swModels');
+[swDesktop,swData,swModels].forEach(function(sw){
+  sw.addEventListener('click',function(){
+    sw.setAttribute('aria-checked',sw.getAttribute('aria-checked')==='true'?'false':'true');
+  });
+});
+function on(sw){return sw.getAttribute('aria-checked')==='true'}
+var ACT={
+  install:function(){begin({cmd:'install',desktop:on(swDesktop)})},
+  toRemove:function(){flow='remove';enter('welcome')},
+  back:function(){if(S.mode==='remove')post({cmd:'close'});else{flow=kind;enter('welcome')}},
+  remove:function(){choice={data:on(swData),models:on(swModels)};begin({cmd:'remove',data:choice.data,models:choice.models})},
+  retry:function(){if(last)begin(last)},
+  open:function(){post({cmd:'open'})},
+  close:function(){if(!busy)post({cmd:'close'})},
+  minimize:function(){post({cmd:'minimize'})}
+};
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');
+  if(b&&ACT[b.dataset.act])ACT[b.dataset.act]();
+});
+/* The window has no frame to hold, so the whole of it is the handle,
+   apart from what can be pressed. */
+document.addEventListener('mousedown',function(e){
+  if(e.button!==0||e.target.closest('button'))return;
+  post({cmd:'drag'});
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(state==='welcome'&&flow==='remove'&&S.mode!=='remove')ACT.back();else ACT.close();
+  }else if(e.key==='Enter'&&!(document.activeElement&&document.activeElement.tagName==='BUTTON')){
+    var b=document.querySelector('.pane.on [data-primary]:not([hidden])');
+    if(b){e.preventDefault();b.click();}
+  }
+});
+
+/* ── The page, filled in ── */
+$('path').textContent=S.appDir;
+$('whereSub').textContent=S.running?'huh? is open · setup closes it first':
+  'v'+S.version+' · '+mb(S.size)+' · just for you · no admin';
+swDesktop.setAttribute('aria-checked',S.desktop?'true':'false');
+$('toRemove').hidden=S.installed==null;
+swData.hidden=!S.hasData;
+swModels.hidden=!(S.modelsSize>0);
+$('modelsSize').textContent=S.modelsSize>0?size(S.modelsSize):'';
+$('optsNone').hidden=S.hasData||S.modelsSize>0;
+if(S.mode==='remove'){document.title='Uninstall huh?';$('backBtn').textContent='Cancel';}
+
+/* ═══ The demonstration, once there is something to demonstrate ══
+   The app's own dictation cycle at the website's timings: the overlay
+   opens on key-down and fills with what is heard, and the key in the
+   sentence above lights while it is held. */
+var demo=(function(){
+  var pill=$('pill'),cap=$('pillCap'),partial=$('pillPartial'),t0=null;
+  var RAW='Can we move the design review to Thursday at three?'.split(' ');
+  var KEY_DOWN=500,LISTEN=800,SPEAK=1150,SPEAK_END=4000,KEY_UP=4300,INSERT=5050,CONFIRM_END=6450,LOOP=8600;
+  function envelope(ms){
+    if(ms<SPEAK||ms>KEY_UP)return 0;
+    var p=(ms-SPEAK)/1000;
+    var v=(0.55+0.45*Math.sin(p*15.5))*(0.45+0.55*Math.abs(Math.sin(p*3.4)))*0.92;
+    return clamp(v);
+  }
+  return function(now,active){
+    if(!active){
+      if(t0!==null){t0=null;pill.className='pill';var k0=$('key');if(k0)k0.classList.remove('held');}
+      return 0;
+    }
+    if(t0===null)t0=now;
+    var ms=(now-t0)%LOOP;
+    var held=ms>=KEY_DOWN&&ms<KEY_UP,open=ms>=KEY_DOWN&&ms<CONFIRM_END,
+        wide=ms>=SPEAK&&ms<INSERT,done=ms>=INSERT&&ms<CONFIRM_END;
+    pill.classList.toggle('on',open);
+    pill.classList.toggle('listening',held);
+    pill.classList.toggle('wide',wide);
+    pill.classList.toggle('done',done);
+    cap.textContent=ms<LISTEN?'Starting…':held?(wide?'':'Listening'):'Transcribing…';
+    var want=wide?RAW.slice(0,Math.min(RAW.length,
+      Math.floor((ms-SPEAK)/((SPEAK_END-SPEAK)/RAW.length))+1)).join(' '):
+      (ms<SPEAK?'':partial.textContent);
+    if(want!==partial.textContent)partial.textContent=want;
+    var key=$('key');if(key)key.classList.toggle('held',held);
+    var v=envelope(ms);pillMeter(v,now);
+    return v;
+  };
+})();
+
+/* ═══ The loop ════════════════════════════════════════════════ */
+var then=0,hold=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  var dt=then?Math.min(0.05,(now-then)/1000):0.016;then=now;
+  P.v*=0.92;
+
+  if(state==='work'){
+    /* The work is real and quick; the display catches it up at a pace
+       that can be read, and never runs ahead of it. */
+    var gap=target-shown;
+    if(REDUCE)shown=target;
+    else if(gap>0)shown+=Math.min(gap,Math.max(gap*0.1,0.004),0.42*dt);
+    var label=labels.length?labels[0][1]:'Starting';
+    for(var i=0;i<labels.length;i++)if(labels[i][0]<=shown+0.0005)label=labels[i][1];
+    if(label==='Done')label=labels.length>1?labels[labels.length-2][1]:label;
+    $('step').textContent=label;
+    var sub=label==='Writing huh.exe'?
+      (clamp((shown-0.04)/0.84)*S.size/1e6).toFixed(1)+' of '+mb(S.size):(ABOUT[label]||'');
+    $('stepSub').textContent=sub||' ';
+    $('pct').textContent=Math.floor(shown*100+0.0001)+'%';
+    $('fill').style.width=(shown*100).toFixed(2)+'%';
+    $('head').style.left=(shown*100).toFixed(2)+'%';
+    var t=now/1000;
+    var lvl=(0.25+0.55*Math.abs(Math.sin(t*7.1))*(0.55+0.45*Math.abs(Math.sin(t*2.3+0.7)))+Math.random()*0.15)*
+      (gap>0.002?1:0.6);
+    if(!REDUCE)workMeter(lvl,now);
+    plate.goal=flow==='remove'?END*(1-shown):END*shown;
+    plate.energy=0.45+Math.min(0.4,gap*6);
+    if(finished&&!failure&&shown>=0.999){
+      if(!hold)hold=now;
+      if(now-hold>260){hold=0;busy=false;enter('done');}
+    }
+  }else if(state==='done'){
+    /* A last ring as it finishes, then the plate settles on the figure. */
+    var ring=Math.max(0,1-(now-doneAt)/700);
+    var voice=REDUCE?0:demo(now,flow!=='remove'&&now-doneAt>900);
+    plate.energy=ring*0.9+voice*0.55;
+  }else if(state==='failed'){
+    plate.energy=0.8;
+  }else{
+    plate.energy=0;
+  }
+  if(state!=='done'&&!REDUCE)demo(now,false);
+  if(!REDUCE)plate.draw();
+}
+
+/* The question mark leans toward the pointer, as it does on the website. */
+var leaning=false;
+function lean(){
+  var q=$('qmark');leaning=true;
+  (function tick(){
+    if(REDUCE){leaning=false;return;}
+    var r=q.getBoundingClientRect();
+    if(r.width&&P.has){
+      var dx=(P.x-(r.left+r.width/2))/innerWidth,dy=(P.y-(r.top+r.height/2))/innerHeight;
+      q.style.transform='rotate('+(dx*10).toFixed(2)+'deg) translate('+(dx*10).toFixed(1)+'px,'+(dy*7).toFixed(1)+'px)';
+    }
+    requestAnimationFrame(tick);
+  })();
+}
+
+function setStill(on){
+  REDUCE=on;
+  document.documentElement.classList.toggle('still',on);
+  var pill=$('pill');
+  if(on){
+    plate.land();
+    pill.className=state==='done'&&flow!=='remove'?'pill on done':'pill';
+    var k=$('key');if(k)k.classList.remove('held');
+    $('qmark').style.transform='';
+  }else{
+    pill.className='pill';
+    if(!leaning)lean();
+  }
+}
+STILL.addEventListener('change',function(e){setStill(e.matches)});
+
+var rz=0;
+addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(function(){plate.resize();if(REDUCE)plate.land();},150)});
+
+/* ═══ Start: settle the sand, draw one frame, then be shown ═══ */
+enter('welcome');
+var fonts=document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve();
+fonts.then(function(){
+  plate.seed();
+  plate.warm(40,function(){
+    plate.draw();
+    post({cmd:'ready'});
+    setTimeout(function(){
+      document.body.classList.add('in');
+      requestAnimationFrame(frame);
+      if(!REDUCE)lean();
+    },90);
+  });
+});
+
+/* ═══ Outside the setup: a rehearsal, for looking at the page in a
+   browser. ?mode=remove, ?installed=0.1.0, ?fail=1. ═══ */
+function preview(){
+  var q=new URLSearchParams(location.search);
+  return {mode:q.get('mode')||'install',version:'0.1.0',installed:q.has('installed')?q.get('installed'):null,
+    running:false,appDir:'~\\AppData\\Local\\Huh',dataDir:'~\\AppData\\Roaming\\Huh',desktop:false,
+    size:40350208,packed:11800000,hasData:true,modelsSize:3120000000,key:'Right Ctrl',test:true};
+}
+function rehearse(o){
+  if(o.cmd!=='install'&&o.cmd!=='remove')return;
+  var fail=new URLSearchParams(location.search).has('fail');
+  var steps=o.cmd==='install'
+    ?[[0.04,'Writing huh.exe'],[0.3,'Writing huh.exe'],[0.6,'Writing huh.exe'],[0.88,'Writing huh.exe'],
+      [0.9,'Adding the uninstaller'],[0.93,'Adding to Start'],[0.97,'Registering with Windows'],[1,'Done']]
+    :[[0.15,'Removing huh.exe'],[0.35,'Removing shortcuts'],[0.5,'Unregistering'],[0.65,'Deleting the downloaded models'],[1,'Done']];
+  steps.forEach(function(s,i){setTimeout(function(){
+    if(fail&&i===3){window.setupFinished('Couldn’t replace huh.exe: Access is denied. (os error 5). Quit huh? from the notification area and try again.');return;}
+    if(!(fail&&i>3))window.setupProgress(s[0],s[1]);
+    if(i===steps.length-1&&!fail)window.setupFinished(null);
+  },120+i*110)});
+}
+})();
+</script>
+</body>
+</html>

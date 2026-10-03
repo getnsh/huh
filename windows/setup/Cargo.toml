@@ -1,0 +1,50 @@
+[package]
+name = "huh-setup"
+description = "Installs, updates and removes huh? on Windows."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# A setup program of its own rather than the stock NSIS wizard: the same
+# WebView2 every copy of huh? already relies on draws the page, so the first
+# thing anyone sees of the app looks like the app, and the work underneath
+# is plain Rust against Windows.
+#
+# The application itself is carried inside, compressed. Build it first with
+# `npm run tauri build` in `app`, then `cargo build --release -p huh-setup`;
+# `npm run setup` does both.
+
+[[bin]]
+name = "huh-setup"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tao = "0.37"
+wry = "0.57"
+zstd = "0.13"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+png = "0.17"
+tauri-winres = "0.3"
+zstd = "0.13"

@@ -73,10 +73,14 @@ jobs:
       - name: build the app
         working-directory: windows/app
         run: npm run tauri build
+      # The setup carries the release build inside it, so it comes second.
+      - name: build the setup
+        run: cargo build --release --manifest-path windows/Cargo.toml -p huh-setup
       - uses: actions/upload-artifact@v4
         with:
           name: huh-windows-x64
           path: |
             windows/target/release/huh.exe
+            windows/target/release/huh-setup.exe
             windows/target/release/bundle/nsis/*.exe
           if-no-files-found: error
