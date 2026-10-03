@@ -76,8 +76,11 @@ around. That download is the only request the app makes over the network, and
 it carries nothing of yours. An interrupted download resumes where it stopped.
 
 Parakeet does not stream, so while the key is held the overlay's words come from
-reading the utterance again, about twice a second, and the final pass reads the
-whole of it when the key comes up. A preview never makes the final pass wait.
+reading the utterance again, its last twelve seconds at most, as often as the
+machine can, and the final pass reads the whole of it when the key comes up.
+Only one preview is ever under way, and one that has not started is dropped
+rather than put ahead of the final pass, so the most a preview can delay the
+text is the second or so it takes to finish.
 
 To check the recogniser without a microphone, or without anyone to talk into one:
 
@@ -87,16 +90,41 @@ cargo run --manifest-path windows/Cargo.toml -p huh --example transcribe -- spee
 
 ## What works today
 
-Dictation, end to end, on a physical PC. Hold Right Ctrl and the overlay appears
-without taking focus from the window being dictated into, the microphone opens,
-and the words so far show in the pill. On release the text goes through the
-dictionary and cleanup, is typed or pasted into whatever has focus, and is kept
-in the history. A muted microphone, or one that Windows' privacy settings keep
-from desktop apps, is named at the press rather than discovered as silence.
+Everything the Mac app does, apart from summaries, on a physical PC.
+
+- **Dictation.** Hold Right Ctrl (or tap it, in toggle mode) and the overlay
+  appears without taking focus from the window being dictated into. The words
+  so far show in the pill while you speak. On release the text goes through
+  the dictionary and cleanup, is typed or pasted into whatever has focus, and
+  is kept in the history. A muted microphone, or one that Windows' privacy
+  settings keep from desktop apps, is named at the press rather than
+  discovered as silence. With "Your PC as well as you" on, what the PC is
+  playing is summed in, and the overlay shows the two as separate traces.
+- **Live sessions.** Start Meeting, or a call noticed in Teams, Zoom, Slack,
+  Discord, Webex or a browser, transcribes the microphone and the PC's own
+  sound separately, through WASAPI loopback, which needs no permission. A
+  small mark sits at the top right of the screen; click it and it opens into
+  the running transcript, drag it and it stays where it is put. The session is
+  saved line by line, with timestamps, when it stops.
+- **Importing recordings.** Drop an audio or video file on the window, or use
+  the import button. Media Foundation decodes it, it is cut at pauses into
+  pieces Parakeet can take, and the transcript comes back line by line with
+  timestamps, playable from the original file.
+- **Learning.** Transcripts are read for names and words the dictionary
+  doesn't know. A word that sounds like a known term is offered as a fix; a
+  name that sounds like someone already known is asked about as that person;
+  any other unfamiliar capitalised word is asked about as a possible name.
+  An answer is filed in the dictionary or with the person, applied to the
+  transcripts already kept, and from then on to everything new. Questions
+  survive a restart.
+- **Everything around it.** Transcripts with search, export (plain text, with
+  timestamps, Markdown, SRT, WebVTT) and copy; the dictionary's Words,
+  Corrections and People; Settings; the notification-area icon with the Mac's
+  menu; feedback sounds; start at sign-in.
 
 The portable core is done and tested: corrections, cleanup, edit distance, the
-models and the stores, reading and writing the same files the Mac does, so a
-folder copied from one opens on the other.
+learning pass, the models and the stores, reading and writing the same files
+the Mac does, so a folder copied from one opens on the other.
 
-Not yet: the dictionary and settings screens, the tray, live sessions with the
-PC's own audio, and importing files.
+Not yet: summaries, which on the Mac come from Apple Intelligence and have no
+on-device equivalent here yet.
