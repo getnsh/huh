@@ -13,21 +13,25 @@
     | { kind: "transcribing" }
     | { kind: "failed"; message: string };
 
-  let state = $state<State>({ kind: "idle" });
-  let history = $state<number[]>([]);
-  let partial = $state("");
-  let confirmation = $state<string | null>(null);
-  let presses = $state(0);
+  // Cast rather than a generic call: `$state<T>()` is a rune, not a function,
+  // so it takes no type arguments, and without the cast the initial literal
+  // narrows the variable to one branch of the union, which then rejects every
+  // other state it will actually be set to.
+  let phase = $state({ kind: "idle" } as State);
+  let history: number[] = $state([]);
+  let partial: string = $state("");
+  let confirmation: string | null = $state(null);
+  let presses: number = $state(0);
 
-  const listening = $derived(state.kind === "listening" || state.kind === "starting");
+  const listening = $derived(phase.kind === "listening" || phase.kind === "starting");
   const expanded = $derived(partial.length > 0 && confirmation === null);
 
   $effect(() => {
     const stops = [
       listen<State>("dictation", (event) => {
-        const previous = state.kind;
-        state = event.payload;
-        if (state.kind === "listening" && previous !== "listening") presses += 1;
+        const previous = phase.kind;
+        phase = event.payload;
+        if (phase.kind === "listening" && previous !== "listening") presses += 1;
       }),
       listen<number[]>("levels", (event) => (history = event.payload)),
       listen<string>("partial", (event) => (partial = event.payload)),
@@ -40,7 +44,7 @@
   });
 
   const caption = $derived.by(() => {
-    switch (state.kind) {
+    switch (phase.kind) {
       case "starting":
         return "Starting…";
       case "listening":
@@ -48,7 +52,7 @@
       case "transcribing":
         return "Transcribing…";
       case "failed":
-        return state.message;
+        return phase.message;
       default:
         return "Hold. Speak. It's typed.";
     }
@@ -172,6 +176,7 @@
     color: var(--text-primary);
     display: -webkit-box;
     -webkit-line-clamp: 4;
+    line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

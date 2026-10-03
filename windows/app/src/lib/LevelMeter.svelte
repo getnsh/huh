@@ -3,18 +3,31 @@
      apart, 24 px tall, redrawn 30 times a second.
      Canvas rather than 28 elements, because this runs for as long as the key
      is held and a layout pass per frame is not free. */
+  interface Props {
+    history?: number[];
+    active?: boolean;
+    bars?: number;
+    barWidth?: number;
+    gap?: number;
+    maxHeight?: number;
+    tint?: string;
+  }
+
   let {
-    history = [] as number[],
+    history = [],
     active = false,
     bars = 28,
     barWidth = 3,
     gap = 2.5,
     maxHeight = 24,
     tint = "var(--live)",
-  } = $props();
+  }: Props = $props();
 
-  const width = bars * barWidth + (bars - 1) * gap;
-  let canvas: HTMLCanvasElement | undefined = $state();
+  // Derived, not computed once: the main window widens the meter from 22 bars
+  // to 44 the moment the microphone opens, and a constant would keep drawing
+  // the old one at the old size.
+  const width = $derived(bars * barWidth + (bars - 1) * gap);
+  let canvas: HTMLCanvasElement | undefined = $state(undefined);
 
   $effect(() => {
     if (!canvas) return;

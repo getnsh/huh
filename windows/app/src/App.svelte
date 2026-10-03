@@ -8,29 +8,32 @@
 
   type Section = "transcripts" | "dictionary";
   type State = { kind: string; message?: string };
+  type Transcript = { id: string; text: string; engine: string };
 
-  let section = $state<Section>("transcripts");
-  let state = $state<State>({ kind: "idle" });
-  let history = $state<number[]>([]);
-  let transcripts = $state<any[]>([]);
+  let section: Section = $state("transcripts");
+  let phase = $state({ kind: "idle" } as State);
+  let history: number[] = $state([]);
+  let transcripts: Transcript[] = $state([]);
 
-  const live = $derived(state.kind === "listening" || state.kind === "starting");
+  const live = $derived(phase.kind === "listening" || phase.kind === "starting");
 
   $effect(() => {
-    invoke<any[]>("get_history").then((value) => (transcripts = value)).catch(() => {});
+    invoke<Transcript[]>("get_history")
+      .then((value) => (transcripts = value))
+      .catch(() => {});
     const stops = [
-      listen<State>("dictation", (event) => (state = event.payload)),
+      listen<State>("dictation", (event) => (phase = event.payload)),
       listen<number[]>("levels", (event) => (history = event.payload)),
     ];
     return () => stops.forEach((stop) => stop.then((off) => off()));
   });
 
   const status = $derived.by(() => {
-    switch (state.kind) {
+    switch (phase.kind) {
       case "starting": return "Starting…";
       case "listening": return "Listening";
       case "transcribing": return "Transcribing…";
-      case "failed": return state.message ?? "Something went wrong";
+      case "failed": return phase.message ?? "Something went wrong";
       default: return "Ready";
     }
   });
