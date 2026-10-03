@@ -200,8 +200,7 @@
 
       {#if heardSomething}
         <p class="aside">
-          Suggestions need an on-device model, which this PC doesn't have yet. Type the replacement
-          yourself.
+          Type the replacement as it should be written.
         </p>
 
         <div class="catches">
