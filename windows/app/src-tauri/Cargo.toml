@@ -27,6 +27,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+# The summariser drives Qwen3 through the same ONNX Runtime the recogniser
+# uses; its tokenizer needs only the regex engine, not the training extras.
+ort = "2.0.0-rc.13"
+tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 parking_lot = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

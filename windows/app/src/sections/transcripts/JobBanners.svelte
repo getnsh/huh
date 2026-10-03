@@ -4,7 +4,6 @@
      this long is often left to run unattended, and a dialog that takes focus
      to guard a destructive choice invites the wrong click. */
   import CircleCheck from "@lucide/svelte/icons/circle-check";
-  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Trash from "@lucide/svelte/icons/trash";
   import Button from "../../lib/ui/Button.svelte";
   import Icon from "../../lib/ui/Icon.svelte";
@@ -13,6 +12,7 @@
   import Truncate from "../../lib/ui/Truncate.svelte";
   import { api } from "../../lib/api";
   import { core } from "../../lib/state.svelte";
+  import FailureBanner from "./FailureBanner.svelte";
   import { drift } from "./motion";
 
   const job = $derived(core.fileJob);
@@ -46,14 +46,7 @@
         </Button>
       </div>
     {:else if job.kind === "failed"}
-      <div class="card failure">
-        <span class="alert"><Icon of={TriangleAlert} size={11} fill /></span>
-        <p class="message">{job.message}</p>
-        <span class="spacer"></span>
-        <Button variant="ghost" tint="var(--danger)" onclick={() => api.dismissFileFailure().catch(() => {})}>
-          Dismiss
-        </Button>
-      </div>
+      <FailureBanner message={job.message} ondismiss={() => api.dismissFileFailure().catch(() => {})} />
     {/if}
   </div>
 {/if}
@@ -153,32 +146,5 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-  }
-
-  .failure {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 11px;
-    color: var(--danger);
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
-  }
-
-  /* exclamationmark.triangle.fill: the mark cut out of a solid triangle, in
-     the colour of what lies under the banner. */
-  .alert {
-    display: grid;
-    place-items: center;
-  }
-
-  .alert :global(svg path:not(:first-child)) {
-    stroke: color-mix(in srgb, var(--danger) 10%, var(--base));
-  }
-
-  .message {
-    margin: 0;
-    min-width: 0;
-    font-size: 12px;
-    line-height: 15px;
   }
 </style>

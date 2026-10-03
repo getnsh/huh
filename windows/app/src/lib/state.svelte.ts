@@ -12,6 +12,8 @@ import type {
   LearningState,
   Settings,
   Suggestions,
+  SummaryModel,
+  SummaryState,
   Transcript,
   Uuid,
 } from "./types";
@@ -62,6 +64,14 @@ export const core = $state({
     lastRunFoundNothing: false,
   } as LearningState,
   fileJob: { kind: "idle" } as FileJob,
+  summary: {
+    runningFor: null,
+    stage: "",
+    progress: null,
+    streamed: "",
+    failure: null,
+  } as SummaryState,
+  summaryModel: { ready: false, busy: false, text: "" } as SummaryModel,
   input: { hasInput: true, name: null, problem: null } as AudioInput,
 });
 
@@ -80,6 +90,8 @@ export function connect(): () => void {
   settle(api.suggestions(), (v) => (core.suggestions = v));
   settle(api.learning(), (v) => (core.learning = v));
   settle(api.fileJob(), (v) => (core.fileJob = v));
+  settle(api.summaryState(), (v) => (core.summary = v));
+  settle(api.summaryModel(), (v) => (core.summaryModel = v));
   settle(api.audioInput(), (v) => (core.input = v));
 
   const stops = [
@@ -101,6 +113,8 @@ export function connect(): () => void {
     on("suggestions", (v) => (core.suggestions = v)),
     on("learning", (v) => (core.learning = v)),
     on("file-job", (v) => (core.fileJob = v)),
+    on("summary", (v) => (core.summary = v)),
+    on("summary-model", (v) => (core.summaryModel = v)),
     on("audio-input", (v) => (core.input = v)),
     on("navigate", (v) => {
       ui.section = v.section;

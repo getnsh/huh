@@ -9,19 +9,26 @@
 
      An hour-long meeting is thousands of rows. The browser skips laying out
      and painting the rows that are off screen, so only what is visible costs
-     anything, however long the meeting. */
+     anything, however long the meeting.
+
+     Its summary, once there is one or while one is being written, leads the
+     body, and the header offers to write it, or to write it again. */
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import Button from "../../lib/ui/Button.svelte";
   import Icon from "../../lib/ui/Icon.svelte";
+  import Spinner from "../../lib/ui/Spinner.svelte";
   import Truncate from "../../lib/ui/Truncate.svelte";
   import CorrectionAudit from "./CorrectionAudit.svelte";
+  import FailureBanner from "./FailureBanner.svelte";
   import LearningBadge from "./LearningBadge.svelte";
+  import SummaryCard from "./SummaryCard.svelte";
   import TranscriptActions from "./TranscriptActions.svelte";
+  import { api } from "../../lib/api";
   import { clock, timecode, wordCount } from "../../lib/format";
-  import { ui } from "../../lib/state.svelte";
-  import type { Transcript } from "../../lib/types";
+  import { core, ui } from "../../lib/state.svelte";
+  import type { Transcript, Uuid } from "../../lib/types";
   import { displayName } from "./naming";
   import { checkPlayable, play, playable, playback, stop, toggle } from "./playback.svelte";
 
@@ -31,12 +38,60 @@
   /* The player's controls belong to the transcript it is playing, and appear
      only there. */
   const owning = $derived(playback.transcriptId === transcript.id);
+  const summarising = $derived(core.summary.runningFor === transcript.id);
 
   /* Asked afresh each time it is opened: the original may have been moved
      or recycled since. */
   $effect(() => {
     checkPlayable(transcript, true);
   });
+
+  /* A press the core turned down, most often because another transcript is
+     being summarised already. It is said where the press was made, and only
+     while things stand as they did when it was refused: once that other
+     summary ends, so does the reason. */
+  let refusal = $state(null as { id: Uuid; message: string; during: Uuid | null } | null);
+  /* One request at a time: a second press before the core has answered the
+     first could only be turned down. */
+  let asking = false;
+
+  /* As on the Mac, the core's last failure shows only once nothing is
+     running; a refusal of this transcript's own press takes its place. */
+  const failure = $derived.by(() => {
+    if (summarising) return null;
+    if (refusal?.id === transcript.id && refusal.during === core.summary.runningFor) {
+      return refusal.message;
+    }
+    return core.summary.runningFor === null ? core.summary.failure : null;
+  });
+
+  async function summarise() {
+    if (asking) return;
+    asking = true;
+    refusal = null;
+    const id = transcript.id;
+    try {
+      await api.summarise(id);
+    } catch (error) {
+      refusal = { id, message: describe(error), during: core.summary.runningFor };
+    } finally {
+      asking = false;
+    }
+  }
+
+  /* Whatever the banner says, it goes: an older failure left under a
+     dismissed refusal would only appear in its place. */
+  function dismiss() {
+    refusal = null;
+    if (core.summary.failure !== null) api.dismissSummaryFailure().catch(() => {});
+  }
+
+  /* The core's refusals are its own sentences, sent as strings. */
+  function describe(error: unknown): string {
+    if (typeof error === "string") return error;
+    if (error instanceof Error) return error.message;
+    return String(error);
+  }
 </script>
 
 <div class="detail">
@@ -71,11 +126,33 @@
       <Button variant="ghost" onclick={stop}>Stop</Button>
     {/if}
 
+    {#if summarising}
+      <span class="summarising">
+        <Spinner />
+        <span class="stage">{core.summary.stage}</span>
+      </span>
+    {:else}
+      <!-- Pressable whatever else is running, as on the Mac: a press either
+           starts a summary or is told why not, where a disabled button would
+           say neither. -->
+      <Button variant="secondary" onclick={summarise}>
+        {transcript.summary ? "Redo Summary" : "Summarise"}
+      </Button>
+    {/if}
+
     <TranscriptActions {transcript} />
   </header>
 
   {#key transcript.id}
     <div class="body">
+      {#if summarising || transcript.summary}
+        <div class="summary"><SummaryCard {transcript} running={summarising} /></div>
+      {/if}
+
+      {#if failure}
+        <div class="failure"><FailureBanner message={failure} ondismiss={dismiss} /></div>
+      {/if}
+
       {#if transcript.segments.length === 0}
         <p class="plain selectable">{transcript.text}</p>
       {:else}
@@ -165,11 +242,40 @@
     min-width: 8px;
   }
 
+  /* What the summary is doing, in the button's place. The title gives way
+     to it rather than the other way round, so the stage is never cut. */
+  .summarising {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  /* Spaces kept, as the Mac keeps the two it puts before a download's
+     sizes. */
+  .stage {
+    font-size: 11.5px;
+    line-height: 14px;
+    color: var(--text-tertiary);
+    white-space: pre;
+  }
+
   .body {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 16px;
+  }
+
+  /* The Mac's padding: the card 14 below the header, 16 in from the sides
+     and 4 above what follows; a failure 12 below that. The timeline comes
+     straight after, with no space of its own. */
+  .summary {
+    padding: 14px 16px 4px;
+  }
+
+  .failure {
+    padding: 12px 16px 0;
   }
 
   /* The Mac's 14 pt, with four points between lines and none above the

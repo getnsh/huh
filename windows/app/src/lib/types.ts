@@ -135,6 +135,28 @@ export type FileJob =
   | { kind: "done"; id: Uuid; name: string; path: string }
   | { kind: "failed"; message: string };
 
+/* ── Summaries ──────────────────────────────────────────────────────────── */
+
+/* The one run there can be at a time. `stage` is ready to show as it is;
+   `progress` is a number only while there is something real to measure, and
+   null while the model writes; `streamed` is the summary so far. */
+export type SummaryState = {
+  runningFor: Uuid | null;
+  stage: string;
+  progress: number | null;
+  streamed: string;
+  /* The last failure, until it is dismissed or the next run starts. */
+  failure: string | null;
+};
+
+/* The model that writes them: `busy` while it downloads or loads, `ready`
+   once it is in memory, and `text` the sentence Settings shows either way. */
+export type SummaryModel = { ready: boolean; busy: boolean; text: string };
+
+/* Named before anything is downloaded, so it lives here rather than in the
+   core's sentences. Windows has this one writer and no other. */
+export const SUMMARY_MODEL = { name: "Qwen3 4B", size: "2.9 GB" } as const;
+
 /* ── Live sessions ──────────────────────────────────────────────────────── */
 
 export type Voice = "you" | "room";

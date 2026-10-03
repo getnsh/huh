@@ -5,10 +5,10 @@
      and no Cancel.
 
      Only what Windows can honour is offered. The Mac's own rule is that a
-     picker never offers a choice that would break the app, so the engine is
-     stated rather than chosen, and Language, Summaries and On-device
-     intelligence, which have nothing behind them here yet, are left out
-     rather than shown switched off. */
+     picker never offers a choice that would break the app, so the engine and
+     the summary writer, one each here, are stated rather than chosen, and
+     Language and On-device intelligence, which have nothing behind them here
+     yet, are left out rather than shown switched off. */
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Button from "../lib/ui/Button.svelte";
   import Switch from "../lib/ui/Switch.svelte";
@@ -32,11 +32,17 @@
     launchText,
     microphoneText,
   } from "./copy";
-  import { change, checkInput, connect, page, setLaunch } from "./page.svelte";
+  import { change, checkInput, connect, page, setLaunch, unloadSummaryModel } from "./page.svelte";
 
   $effect(() => connect());
 
   const engineTone: Tone = $derived(page.engine.kind === "ready" ? "live" : "warning");
+
+  /* Grey until the core has said where the model stands, then as the Mac
+     colours it: live once it is in memory, the warning colour until then. */
+  const summaryTone: Tone = $derived(
+    page.summaryModel === null ? "neutral" : page.summaryModel.ready ? "live" : "warning",
+  );
 
   /* Grey only until the first answer arrives, which is a moment. */
   const microphoneTone: Tone = $derived(
@@ -165,6 +171,22 @@
           </Row>
           <Note>{TEXT.engineNote}</Note>
           <StatusLine tone={engineTone} text={engineText(page.engine)} />
+        </Group>
+
+        <Group title="Summaries">
+          <Row label="Written by">
+            <span class="value">{TEXT.summaryEngine}</span>
+          </Row>
+          <Note>{TEXT.summaryNote}</Note>
+          <StatusLine
+            tone={summaryTone}
+            text={page.unloadFailure ?? page.summaryModel?.text ?? ""}
+            danger={page.unloadFailure !== null}
+          >
+            {#if page.summaryModel?.ready}
+              <Button variant="ghost" onclick={unloadSummaryModel}>Unload</Button>
+            {/if}
+          </StatusLine>
         </Group>
 
         <Group title="Cleanup">

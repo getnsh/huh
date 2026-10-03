@@ -17,6 +17,8 @@ import type {
   SessionState,
   Settings,
   Suggestions,
+  SummaryModel,
+  SummaryState,
   Transcript,
   Uuid,
   VocabularyTerm,
@@ -42,6 +44,14 @@ export const api = {
   keepOriginal: () => invoke<void>("keep_original"),
   recycleOriginal: () => invoke<void>("recycle_original"),
   dismissFileFailure: () => invoke<void>("dismiss_file_failure"),
+
+  /* Summaries. `summarise` starts a run, or is turned down in words that can
+     be shown as they are: another transcript already being summarised. */
+  summarise: (id: Uuid) => invoke<void>("summarise", { id }),
+  summaryState: () => invoke<SummaryState>("summary_state"),
+  dismissSummaryFailure: () => invoke<void>("dismiss_summary_failure"),
+  summaryModel: () => invoke<SummaryModel>("summary_model"),
+  unloadSummaryModel: () => invoke<void>("unload_summary_model"),
 
   /* Dictionary */
   dictionary: () => invoke<DictionaryState>("dictionary_state"),
@@ -122,6 +132,9 @@ export type Events = {
   suggestions: Suggestions;
   learning: LearningState;
   "file-job": FileJob;
+  /* Several times a second while the text streams. */
+  summary: SummaryState;
+  "summary-model": SummaryModel;
   settings: Settings;
   "audio-input": AudioInput;
   session: SessionState;

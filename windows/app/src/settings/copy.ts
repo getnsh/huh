@@ -7,7 +7,7 @@
    else is the Mac's, character for character, dashes and curly quotes
    included. */
 import type { AudioInput, CleanupLevel, EngineStatus, HotKey, InjectionMode, TriggerMode } from "../lib/types";
-import { HOTKEY_LABELS } from "../lib/types";
+import { HOTKEY_LABELS, SUMMARY_MODEL } from "../lib/types";
 
 export type Choice<T extends string> = { value: T; label: string };
 
@@ -75,6 +75,11 @@ export const TEXT = {
      speaker attribution are a promise Windows does not keep yet. */
   engineNote:
     "Downloads about 670 MB from the model registry the first time huh? starts, then runs entirely offline.",
+
+  /* The Mac offers two writers and picks between them; Windows has the one,
+     so it is named rather than chosen, with the Mac's note for that model. */
+  summaryEngine: SUMMARY_MODEL.name,
+  summaryNote: `Downloads about ${SUMMARY_MODEL.size} once, then runs offline like everything else. Reads a whole meeting in one pass, so the summary is written by something that has seen all of it. An hour of meeting takes a few minutes on this PC, and uses more memory while it runs.`,
 
   startAtSignIn: "Start at sign-in",
 

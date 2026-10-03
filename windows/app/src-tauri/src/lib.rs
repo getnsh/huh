@@ -10,10 +10,12 @@ pub mod capture;
 pub mod chrome;
 pub mod controller;
 pub mod dictation;
+pub mod fetch;
 pub mod files;
 pub mod hotkey;
 pub mod inject;
 pub mod learning;
+pub mod llm;
 pub mod media;
 pub mod meetings;
 pub mod overlay;
@@ -21,6 +23,7 @@ pub mod session;
 mod sounds;
 pub mod speech;
 pub mod spelling;
+pub mod summary;
 pub mod system;
 pub mod tray;
 
@@ -52,6 +55,8 @@ pub struct App {
     pub learning: learning::Learning,
     pub files: files::Files,
     pub session: session::Session,
+    /// Meeting write-ups, and the model that writes them.
+    pub summaries: summary::Summaries,
     /// Counts utterances, so work started for one can tell it has been
     /// overtaken by the next.
     pub utterances: AtomicU64,
@@ -72,6 +77,7 @@ impl App {
             learning: learning::Learning::default(),
             files: files::Files::default(),
             session: session::Session::default(),
+            summaries: summary::Summaries::default(),
             utterances: AtomicU64::new(0),
         }
     }
@@ -212,6 +218,11 @@ pub fn run() {
             session::set_panel_expanded,
             session::panel_measured,
             session::panel_drag,
+            summary::summarise,
+            summary::summary_state,
+            summary::dismiss_summary_failure,
+            summary::summary_model,
+            summary::unload_summary_model,
         ])
         .on_window_event(|window, event| {
             // Alt+F4 and the taskbar's "Close window" hide the main window,
@@ -247,6 +258,7 @@ pub fn run() {
             });
 
             learning::start(&handle, &shared);
+            summary::start(&handle, &shared);
             system::watch_input(&handle);
             session::start_watching(&handle, &shared);
 

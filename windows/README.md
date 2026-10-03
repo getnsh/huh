@@ -90,7 +90,7 @@ cargo run --manifest-path windows/Cargo.toml -p huh --example transcribe -- spee
 
 ## What works today
 
-Everything the Mac app does, apart from summaries, on a physical PC.
+Everything the Mac app does, on a physical PC.
 
 - **Dictation.** Hold Right Ctrl (or tap it, in toggle mode) and the overlay
   appears without taking focus from the window being dictated into. The words
@@ -117,6 +117,15 @@ Everything the Mac app does, apart from summaries, on a physical PC.
   An answer is filed in the dictionary or with the person, applied to the
   transcripts already kept, and from then on to everything new. Questions
   survive a restart.
+- **Summaries.** Summarise on an open transcript writes it up under the Mac's
+  five headings, with Qwen3 4B running on this PC through ONNX Runtime: the
+  same model the Mac downloads for the same job, as an int4 build for the
+  CPU. It is fetched the first time a summary asks for it (2.9 GB, pinned to a
+  commit and checked against its hashes), reads the whole meeting in one
+  pass, and streams the write-up as it goes. On a laptop processor it reads
+  about fifty tokens a second, so an hour of meeting takes five or six
+  minutes, where the Mac's GPU takes one. It leaves memory after ten idle
+  minutes, or from Settings.
 - **Everything around it.** Transcripts with search, export (plain text, with
   timestamps, Markdown, SRT, WebVTT) and copy; the dictionary's Words,
   Corrections and People; Settings; the notification-area icon with the Mac's
@@ -126,5 +135,6 @@ The portable core is done and tested: corrections, cleanup, edit distance, the
 learning pass, the models and the stores, reading and writing the same files
 the Mac does, so a folder copied from one opens on the other.
 
-Not yet: summaries, which on the Mac come from Apple Intelligence and have no
-on-device equivalent here yet.
+What can't come across: Apple's own on-device model, the Mac's other summary
+engine, which exists only on a Mac. Qwen3 4B, its alternative there, is the
+only one here.

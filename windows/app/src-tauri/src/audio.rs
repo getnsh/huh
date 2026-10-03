@@ -221,7 +221,7 @@ enum Command {
     Stop(Sender<Recording>),
 }
 
-const GONE: &str = "The microphone thread has stopped. Restart huh?.";
+const GONE: &str = "The microphone thread has stopped. Quit and reopen huh? to carry on.";
 
 /// The microphone, on its own thread.
 pub struct Recorder {

@@ -15,18 +15,17 @@
 //! Recognition happens on a thread of its own, which owns the model. Loading it
 //! takes seconds, so it happens once, at launch, and each utterance after that
 //! is a message to the same thread.
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use parking_lot::RwLock;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use transcribe_rs::onnx::parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity};
 use transcribe_rs::onnx::Quantization;
+
+use crate::fetch::{self, Part, Source};
 
 /// A sentence the recogniser heard, and when, in seconds from the start of
 /// the audio it was given.
@@ -54,14 +53,11 @@ pub enum Status {
 }
 
 /// The model, file by file, as published at one revision.
-struct Part {
-    name: &'static str,
-    bytes: u64,
-    sha256: &'static str,
-}
-
-const REPOSITORY: &str = "istupakov/parakeet-tdt-0.6b-v3-onnx";
-const REVISION: &str = "8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce";
+const SOURCE: Source = Source {
+    repository: "istupakov/parakeet-tdt-0.6b-v3-onnx",
+    revision: "8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce",
+    prefix: "",
+};
 const FOLDER: &str = "parakeet-tdt-0.6b-v3-int8";
 
 /// The hashes are what a download is checked against. A launch checks only
@@ -94,16 +90,12 @@ const PARTS: [Part; 4] = [
 /// hardware it runs on.
 pub const ENGINE_NAME: &str = "Parakeet TDT (CPU)";
 
-/// Where the model lives.
+/// Where downloaded models live.
 ///
 /// `%LOCALAPPDATA%`, not `%APPDATA%` beside the dictionary: a roaming profile
-/// copies `%APPDATA%` from machine to machine at every sign-in, and 640 MB of
-/// weights is not something to roam. `HUH_MODEL_DIR` names the folder holding
-/// the files directly, for development.
-pub fn directory() -> PathBuf {
-    if let Ok(explicit) = std::env::var("HUH_MODEL_DIR") {
-        return PathBuf::from(explicit);
-    }
+/// copies `%APPDATA%` from machine to machine at every sign-in, and gigabytes
+/// of weights are not something to roam.
+pub fn models_root() -> PathBuf {
     #[cfg(windows)]
     let base = std::env::var("LOCALAPPDATA")
         .map(PathBuf::from)
@@ -112,151 +104,29 @@ pub fn directory() -> PathBuf {
     let base = std::env::var("HOME")
         .map(|home| PathBuf::from(home).join("Library/Caches"))
         .unwrap_or_else(|_| PathBuf::from("."));
-    base.join("Huh").join("Models").join(FOLDER)
+    base.join("Huh").join("Models")
 }
 
-fn complete(folder: &Path, part: &Part) -> bool {
-    fs::metadata(folder.join(part.name))
-        .map(|meta| meta.len() == part.bytes)
-        .unwrap_or(false)
+/// Where the recogniser lives. `HUH_MODEL_DIR` names the folder holding the
+/// files directly, for development.
+pub fn directory() -> PathBuf {
+    if let Ok(explicit) = std::env::var("HUH_MODEL_DIR") {
+        return PathBuf::from(explicit);
+    }
+    models_root().join(FOLDER)
 }
 
 /// Whether every file is in place.
 pub fn present(folder: &Path) -> bool {
-    PARTS.iter().all(|part| complete(folder, part))
+    fetch::present(folder, &PARTS)
 }
 
 /// Fetches whatever is missing, reporting progress as a whole percentage of
 /// what was missing.
 pub fn download(folder: &Path, progress: &mut dyn FnMut(u8)) -> Result<(), String> {
-    fs::create_dir_all(folder).map_err(|e| e.to_string())?;
-    let missing: Vec<&Part> = PARTS
-        .iter()
-        .filter(|part| !complete(folder, part))
-        .collect();
-    let total: u64 = missing.iter().map(|part| part.bytes).sum();
-    let agent = agent();
-    let mut finished = 0u64;
-    for part in missing {
-        fetch(&agent, folder, part, &mut |bytes| {
-            let percent = ((finished + bytes) * 100 / total.max(1)).min(100) as u8;
-            progress(percent);
-        })?;
-        finished += part.bytes;
-    }
-    Ok(())
-}
-
-fn agent() -> ureq::Agent {
-    use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
-    // The system's TLS and the system's certificate store: the same trust
-    // Edge has, including any root a company has installed.
-    let tls = TlsConfig::builder()
-        .provider(TlsProvider::NativeTls)
-        .root_certs(RootCerts::PlatformVerifier)
-        .build();
-    ureq::Agent::config_builder()
-        .tls_config(tls)
-        .timeout_connect(Some(Duration::from_secs(20)))
-        .user_agent(concat!("huh/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .new_agent()
-}
-
-fn fetch(
-    agent: &ureq::Agent,
-    folder: &Path,
-    part: &Part,
-    progress: &mut dyn FnMut(u64),
-) -> Result<(), String> {
-    let target = folder.join(part.name);
-    let partial = folder.join(format!("{}.part", part.name));
-
-    // An attempt that stopped part-way is carried on from where it stopped
-    // rather than started again: 650 MB is a lot to lose to a dropped
-    // connection. What is already on disk is hashed first, so the check at
-    // the end still covers every byte.
-    let mut hasher = Sha256::new();
-    let mut have = match File::open(&partial) {
-        Ok(mut existing) => absorb(&mut existing, &mut hasher).unwrap_or(0),
-        Err(_) => 0,
-    };
-    if have >= part.bytes {
-        let _ = fs::remove_file(&partial);
-        hasher = Sha256::new();
-        have = 0;
-    }
-
-    let url = format!(
-        "https://huggingface.co/{REPOSITORY}/resolve/{REVISION}/{}",
-        part.name
-    );
-    let mut request = agent.get(&url);
-    if have > 0 {
-        request = request.header("Range", format!("bytes={have}-"));
-    }
-    let mut response = request
-        .call()
-        .map_err(|e| format!("{} could not be fetched: {e}", part.name))?;
-
-    // A server is free to ignore a range and send the whole file again.
-    let resumed = have > 0 && response.status().as_u16() == 206;
-    if !resumed {
-        hasher = Sha256::new();
-        have = 0;
-    }
-    let mut file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .append(resumed)
-        .truncate(!resumed)
-        .open(&partial)
-        .map_err(|e| e.to_string())?;
-
-    let mut reader = response.body_mut().as_reader();
-    let mut buffer = vec![0u8; 1 << 16];
-    progress(have);
-    loop {
-        let read = reader
-            .read(&mut buffer)
-            .map_err(|e| format!("{} stopped arriving: {e}", part.name))?;
-        if read == 0 {
-            break;
-        }
-        file.write_all(&buffer[..read]).map_err(|e| e.to_string())?;
-        hasher.update(&buffer[..read]);
-        have += read as u64;
-        progress(have);
-    }
-    file.flush().map_err(|e| e.to_string())?;
-    drop(file);
-
-    if have != part.bytes {
-        // Kept, so the next attempt resumes.
-        return Err(format!(
-            "{} arrived incomplete, {have} of {} bytes.",
-            part.name, part.bytes
-        ));
-    }
-    let digest = format!("{:x}", hasher.finalize());
-    if digest != part.sha256 {
-        let _ = fs::remove_file(&partial);
-        return Err(format!("{} did not match its checksum.", part.name));
-    }
-    fs::rename(&partial, &target).map_err(|e| e.to_string())
-}
-
-fn absorb(file: &mut File, hasher: &mut Sha256) -> io::Result<u64> {
-    let mut buffer = vec![0u8; 1 << 16];
-    let mut total = 0u64;
-    loop {
-        let read = file.read(&mut buffer)?;
-        if read == 0 {
-            return Ok(total);
-        }
-        hasher.update(&buffer[..read]);
-        total += read as u64;
-    }
+    fetch::download(&SOURCE, folder, &PARTS, &mut |done, total| {
+        progress((done * 100 / total.max(1)).min(100) as u8)
+    })
 }
 
 enum Job {
@@ -280,7 +150,7 @@ enum Job {
 
 type Listener = Box<dyn Fn(&Status) + Send + Sync>;
 
-const GONE: &str = "The recogniser has stopped. Restart huh?.";
+const GONE: &str = "The recogniser has stopped. Quit and reopen huh? to carry on.";
 
 pub struct Recogniser {
     jobs: Sender<Job>,

@@ -5,7 +5,7 @@
    does, as the Mac's @Published properties move, and then defers to the core
    again once nothing it sent is still on the way there. */
 import { api, on } from "../lib/api";
-import type { AudioInput, EngineStatus, SessionState, Settings } from "../lib/types";
+import type { AudioInput, EngineStatus, SessionState, Settings, SummaryModel } from "../lib/types";
 
 export const page = $state({
   settings: null as Settings | null,
@@ -19,6 +19,9 @@ export const page = $state({
   launchFailure: null as string | null,
   /* Only for the line under "Notice when a call starts". */
   session: null as SessionState | null,
+  /* The summary model's line: downloaded or not, loading, ready. */
+  summaryModel: null as SummaryModel | null,
+  unloadFailure: null as string | null,
 });
 
 /* Writes sent and not yet answered. The core echoes every write as a
@@ -66,6 +69,14 @@ export async function setLaunch(enabled: boolean) {
   await readLaunch();
 }
 
+/* The core will not unload a model a summary is still using, and says so.
+   That is said in the model's line, as a sign-in failure is in its own, until
+   the model next changes, which is when the summary is done with it. */
+export function unloadSummaryModel() {
+  page.unloadFailure = null;
+  api.unloadSummaryModel().catch((error) => (page.unloadFailure = describe(error)));
+}
+
 export function checkInput() {
   api
     .audioInput()
@@ -103,6 +114,10 @@ export function connect(): () => void {
     .session()
     .then((session) => (page.session = session))
     .catch(() => {});
+  api
+    .summaryModel()
+    .then((model) => (page.summaryModel = model))
+    .catch(() => {});
   checkInput();
   readLaunch();
 
@@ -123,6 +138,10 @@ export function connect(): () => void {
     on("engine", (status) => (page.engine = status)),
     on("audio-input", (input) => (page.input = input)),
     on("session", (session) => (page.session = session)),
+    on("summary-model", (model) => {
+      page.summaryModel = model;
+      page.unloadFailure = null;
+    }),
   ];
 
   return () => {

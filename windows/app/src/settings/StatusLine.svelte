@@ -55,12 +55,15 @@
     background: var(--text-tertiary);
   }
 
+  /* Spaces kept as the Mac's Text keeps them: the summary model's download
+     line puts two before its sizes. */
   .text {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 12px;
     line-height: 15px;
     color: var(--text-tertiary);
+    white-space: pre-wrap;
   }
 
   .text.small {
