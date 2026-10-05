@@ -174,6 +174,9 @@ export type SessionState = {
   finalDuration: number | null;
   hearsYou: boolean;
   hearsRoom: boolean;
+  /* Open but paused: heard as silence until resumed. */
+  youPaused: boolean;
+  roomPaused: boolean;
   statusMessage: string | null;
   savedTranscript: Uuid | null;
   expanded: boolean;

@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError};
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use uuid::Uuid;
 
@@ -56,7 +56,7 @@ const CALL_POLL: Duration = Duration::from_millis(500);
 /// the Mac's 0.2 s, and a frame to spare.
 const SLIDE_OUT: Duration = Duration::from_millis(220);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Voice {
     You,
@@ -123,6 +123,10 @@ pub struct SessionState {
     pub final_duration: Option<f64>,
     pub hears_you: bool,
     pub hears_room: bool,
+    /// A voice that is open but paused: its stream keeps running and is
+    /// heard as silence, so nothing said while paused reaches the record.
+    pub you_paused: bool,
+    pub room_paused: bool,
     pub status_message: Option<String>,
     pub saved_transcript: Option<Uuid>,
     pub expanded: bool,
@@ -202,6 +206,10 @@ pub struct Session {
     inner: Mutex<Inner>,
     you: Arc<Meter>,
     room: Arc<Meter>,
+    /// Read by each stream's callback for every block, so they live outside
+    /// the lock the voices and the panel contend for.
+    you_paused: Arc<AtomicBool>,
+    room_paused: Arc<AtomicBool>,
     /// Bumped by every start, so a voice from an earlier session cannot write
     /// into this one.
     generation: AtomicU64,
@@ -224,6 +232,8 @@ impl Session {
             final_duration: inner.final_duration,
             hears_you: inner.hears_you,
             hears_room: inner.hears_room,
+            you_paused: self.you_paused.load(Ordering::SeqCst),
+            room_paused: self.room_paused.load(Ordering::SeqCst),
             status_message: inner.status_message.clone(),
             saved_transcript: inner.saved_transcript,
             expanded: inner.expanded,
@@ -281,6 +291,8 @@ fn start(handle: &AppHandle, app: &Shared, trigger: Trigger) {
     };
     app.session.you.clear();
     app.session.room.clear();
+    app.session.you_paused.store(false, Ordering::SeqCst);
+    app.session.room_paused.store(false, Ordering::SeqCst);
     publish(handle, app);
 
     // The room first, then you, as the Mac opens them. Either can fail alone
@@ -468,15 +480,27 @@ fn open_voice(
     generation: u64,
 ) -> Result<Opened, String> {
     let (blocks, inbox) = unbounded::<(Vec<f32>, u32)>();
-    let meter = match voice {
-        Voice::You => app.session.you.clone(),
-        Voice::Room => app.session.room.clone(),
+    let (meter, paused) = match voice {
+        Voice::You => (app.session.you.clone(), app.session.you_paused.clone()),
+        Voice::Room => (app.session.room.clone(), app.session.room_paused.clone()),
     };
     let sink_meter = meter.clone();
     let mut pending_level: Vec<f32> = Vec::new();
+    let mut silence: Vec<f32> = Vec::new();
     let stream = capture::Stream::open(
         source,
         Box::new(move |block, rate| {
+            // Paused, the voice still gets a block of the same length, only
+            // silent: the session's clock stays true, the meter falls flat,
+            // and a sentence cut off by the pause settles at the gap the way
+            // it would at any other.
+            let block = if paused.load(Ordering::Relaxed) {
+                silence.clear();
+                silence.resize(block.len(), 0.0);
+                &silence[..]
+            } else {
+                block
+            };
             // A level per 1/44 s, as dictation's meter takes them.
             pending_level.extend_from_slice(block);
             let size = (rate as usize / audio::HISTORY_DEPTH).max(1);
@@ -855,6 +879,20 @@ pub fn toggle(handle: &AppHandle, app: &Shared) {
         app.session.inner.lock().offer = None;
         start(handle, app, Trigger::Manual);
     }
+}
+
+/// Pauses or resumes one voice of the running session.
+#[tauri::command]
+pub fn set_voice_paused(app: State<'_, Shared>, handle: AppHandle, voice: Voice, paused: bool) {
+    if !app.session.inner.lock().running {
+        return;
+    }
+    let flag = match voice {
+        Voice::You => &app.session.you_paused,
+        Voice::Room => &app.session.room_paused,
+    };
+    flag.store(paused, Ordering::SeqCst);
+    publish(&handle, &app);
 }
 
 #[tauri::command]

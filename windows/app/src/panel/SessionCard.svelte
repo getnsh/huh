@@ -7,7 +7,11 @@
      it: a gesture covering the whole header would have to decide between
      moving the panel and pressing Stop, and getting that wrong ends a
      recording. */
+  import Mic from "@lucide/svelte/icons/mic";
+  import MicOff from "@lucide/svelte/icons/mic-off";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import Volume2 from "@lucide/svelte/icons/volume-2";
+  import VolumeX from "@lucide/svelte/icons/volume-x";
   import Button from "../lib/ui/Button.svelte";
   import ElapsedLabel from "../lib/ui/ElapsedLabel.svelte";
   import Icon from "../lib/ui/Icon.svelte";
@@ -73,18 +77,51 @@
     keeper?.follow();
   });
 
+  /* Paused, a voice's stream stays open and is heard as silence, so the
+     words already under way settle and nothing said after them is kept. */
+  const pause = (voice: Voice, paused: boolean) =>
+    api.setVoicePaused(voice, paused).catch(() => {});
+
   const stopOrClose = () =>
     (running ? api.toggleSession() : api.dismissPanel()).catch(() => {});
 </script>
 
-{#snippet trace(label: string, history: number[], tint: string, hears: boolean, speaking: boolean)}
+{#snippet trace(
+  voice: Voice,
+  label: string,
+  history: number[],
+  tint: string,
+  hears: boolean,
+  paused: boolean,
+  speaking: boolean,
+)}
+  {@const listening = running && hears && !paused}
   <div class="track">
-    <span class="voice" style:color={speaking ? tint : null}>{label}</span>
+    <span class="voice" style:color={speaking && !paused ? tint : null}>{label}</span>
     <!-- A source that never opened is drawn as off rather than as silent: a
-         flat line would claim a microphone is listening on a PC that has none. -->
-    <span class="signal" class:off={running && !hears}>
-      <VoiceTrace {history} active={running && hears} {tint} />
+         flat line would claim a microphone is listening on a PC that has none.
+         A paused one is drawn the same way, for the same reason. -->
+    <span class="signal" class:off={running && (!hears || paused)}>
+      <VoiceTrace {history} active={listening} {tint} />
     </span>
+    {#if running && hears}
+      {@const what = voice === "you" ? "microphone" : "PC sound"}
+      <button
+        class="mute"
+        class:paused
+        title={paused ? `Resume ${what}` : `Pause ${what}`}
+        aria-label={paused ? `Resume ${what}` : `Pause ${what}`}
+        aria-pressed={paused}
+        disabled={session.stopping}
+        onclick={() => pause(voice, !paused)}
+      >
+        {#if voice === "you"}
+          <Icon of={paused ? MicOff : Mic} size={9} weight="medium" />
+        {:else}
+          <Icon of={paused ? VolumeX : Volume2} size={9} weight="medium" />
+        {/if}
+      </button>
+    {/if}
   </div>
 {/snippet}
 
@@ -137,12 +174,22 @@
   </div>
 
   <div class="traces">
-    {@render trace("You", levels.you, "var(--live)", session.hearsYou, session.youDraft !== "")}
     {@render trace(
+      "you",
+      "You",
+      levels.you,
+      "var(--live)",
+      session.hearsYou,
+      session.youPaused,
+      session.youDraft !== "",
+    )}
+    {@render trace(
+      "room",
       session.roomLabel,
       levels.room,
       "var(--live-soft)",
       session.hearsRoom,
+      session.roomPaused,
       session.roomDraft !== "",
     )}
   </div>
@@ -314,6 +361,43 @@
 
   .signal.off {
     opacity: 0.3;
+  }
+
+  /* Smaller than the header's buttons and without their fill until it is
+     pressed: it belongs to its trace, not to the panel. Paused, it takes the
+     filled circle, so the state reads at a glance without borrowing the live
+     colour, which means the opposite. */
+  .mute {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: var(--text-tertiary);
+    background: transparent;
+    transition:
+      color var(--quick-duration) var(--quick),
+      background-color var(--quick-duration) var(--quick),
+      transform var(--quick-duration) var(--quick);
+  }
+
+  .mute:hover {
+    color: var(--text-secondary);
+    background: var(--hover);
+  }
+
+  .mute:active {
+    transform: scale(0.985);
+  }
+
+  .mute.paused {
+    color: var(--text-primary);
+    background: var(--pressed);
+  }
+
+  .mute:disabled {
+    opacity: 0.4;
   }
 
   .divider {

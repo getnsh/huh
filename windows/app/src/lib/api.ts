@@ -15,6 +15,7 @@ import type {
   Person,
   SessionLevels,
   SessionState,
+  Voice,
   Settings,
   Suggestions,
   SummaryModel,
@@ -109,6 +110,8 @@ export const api = {
   /* Live sessions */
   session: () => invoke<SessionState>("session_state"),
   toggleSession: () => invoke<void>("toggle_session"),
+  setVoicePaused: (voice: Voice, paused: boolean) =>
+    invoke<void>("set_voice_paused", { voice, paused }),
   acceptOffer: () => invoke<void>("accept_offer"),
   declineOffer: () => invoke<void>("decline_offer"),
   dismissPanel: () => invoke<void>("dismiss_panel"),

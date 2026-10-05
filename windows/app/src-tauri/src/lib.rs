@@ -211,6 +211,7 @@ pub fn run() {
             system::set_launch_at_login,
             session::session_state,
             session::toggle_session,
+            session::set_voice_paused,
             session::accept_offer,
             session::decline_offer,
             session::dismiss_panel,
