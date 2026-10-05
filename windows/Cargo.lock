@@ -1866,7 +1866,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "huh"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "cpal",
@@ -1897,7 +1897,7 @@ dependencies = [
 
 [[package]]
 name = "huh-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "fancy-regex",
@@ -1908,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "huh-setup"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "png 0.17.16",
  "serde",
