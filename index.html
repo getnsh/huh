@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>huh?</title>
-<meta name="description" content="On-device dictation and meeting transcription for macOS. Your Mac already has the hardware. Nothing needs to leave it.">
+<meta name="description" content="On-device dictation and meeting transcription for the Mac, and now for Windows. Your computer already has the hardware. Nothing needs to leave it.">
 <meta name="color-scheme" content="dark">
 <!-- The application's own icon, lifted out of Resources/AppIcon.icns,
      cropped past the transparent margin macOS bakes into every app
@@ -675,6 +675,132 @@ footer{padding:64px 0 40px}
 .foot a{color:var(--t3);text-decoration:none}.foot a:hover{color:var(--t1)}
 .foot .sp{flex:none;width:clamp(20px,4vw,54px)}
 .heart{color:var(--live)}
+
+/* ── Platforms ───────────────────────────────────────────── */
+.plats{display:flex;flex-wrap:wrap;gap:6px 16px;margin:14px 0 0;font-family:var(--mono);
+  font-size:11.5px;color:var(--t3);letter-spacing:.02em}
+.plats b{color:var(--t2);font-weight:400}
+
+/* ── The PC window ───────────────────────────────────────── */
+/* The demo stage again, in Windows' clothes: the title at the left,
+   the three caption buttons 46 wide on the right, the smaller corner
+   Windows 11 draws. */
+.win.pc{border-radius:8px}
+.win.pc .win-bar{padding:0 0 0 14px;gap:0}
+.win.pc .win-bar span{position:static;flex:1;text-align:left}
+.win.pc .cb{display:flex;height:100%;color:var(--t3)}
+.win.pc .cb svg{width:46px;height:100%;padding:12px 18px;flex:none;fill:none;
+  stroke:currentColor;stroke-width:1}
+
+/* ── Parity ──────────────────────────────────────────────── */
+.parity{display:grid;grid-template-columns:minmax(120px,.62fr) 1fr 1fr;gap:1px;
+  background:var(--soft);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;margin-top:30px}
+.parity>div{background:var(--base);padding:13px 16px;font-size:14px;line-height:1.5;color:var(--t2)}
+.parity .ph{background:var(--surface);font-family:var(--mono);font-size:12px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--t3)}
+.parity .k{font-family:var(--mono);font-size:12px;color:var(--t3);letter-spacing:.04em;
+  padding-top:15px}
+.parity b{color:var(--t1);font-weight:500}
+.parity code{font-family:var(--mono);font-size:12.5px;color:var(--live2);word-break:break-word}
+@media(max-width:640px){
+  .parity{grid-template-columns:1fr 1fr}
+  .parity .ph.e{display:none}
+  .parity .k{grid-column:1/-1;background:var(--surface);padding:9px 14px 8px}
+  .parity>div{padding:11px 14px;font-size:13.5px}
+}
+
+/* ── First launch ────────────────────────────────────────── */
+/* FirstRun.svelte, rebuilt: the eyebrow, a heading, the bar and the
+   real sizes under it, inside the window it covers. */
+.frwin{position:relative;z-index:1;width:min(100%,600px);background:var(--base);
+  border:1px solid var(--border);border-radius:8px;overflow:hidden;
+  box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.frbar{height:32px;background:var(--surface);display:flex;justify-content:flex-end;
+  color:var(--t3)}
+.frbar svg{width:46px;height:100%;padding:11px 18px;flex:none;fill:none;
+  stroke:currentColor;stroke-width:1}
+.frbody{padding:clamp(30px,6vw,54px) clamp(22px,5vw,48px) clamp(34px,6vw,58px)}
+/* Inside a window, not over the plate: no halo to lift it off sand. */
+.frbody .tc{margin-bottom:18px;text-shadow:none}
+.frt{font-size:clamp(26px,4.4vw,40px);font-weight:600;line-height:1;margin:0;
+  letter-spacing:-.045em;text-wrap:balance}
+.frl{margin:14px 0 0;font-size:14px;line-height:1.5;color:var(--t2);max-width:46ch;
+  min-height:4.5em}
+.frl kbd{font-family:var(--sans);font-weight:600;font-size:11px;padding:2px 6px;
+  border-radius:4px;color:var(--t2);background:var(--raised)}
+.frtrk{position:relative;height:3px;border-radius:99px;background:var(--hover);
+  margin-top:26px;overflow:hidden}
+.frtrk i{position:absolute;top:0;bottom:0;left:0;width:0;border-radius:99px;
+  background:var(--live)}
+.frtrk.thumb i{width:35%;animation:frgo 1.05s var(--spring) infinite alternate}
+@keyframes frgo{from{left:0}to{left:65%}}
+.frm{display:flex;justify-content:space-between;gap:14px;margin-top:10px;
+  font-family:var(--mono);font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.frm span:last-child{color:var(--t2)}
+.frin{animation:frin .46s var(--spring) both}
+@keyframes frin{from{opacity:0;transform:translateY(6px)}}
+@media(prefers-reduced-motion:reduce){.frtrk.thumb i{animation:none;left:32.5%}.frin{animation:none}}
+
+/* ── The live panel ──────────────────────────────────────── */
+/* SessionCard.svelte, to its numbers: 356 across, 16 in, a 20px
+   radius a step past every other panel, a voice label 10px in caps,
+   lines at 12.5 with a 2px rail in the voice's colour. */
+.lp{position:relative;z-index:1;width:min(100%,356px);padding:16px;border-radius:20px;
+  background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border),0 12px 38px rgba(0,0,0,.62),0 2px 6px rgba(0,0,0,.5)}
+.lp-head{display:flex;align-items:center;gap:8px;padding-bottom:12px}
+.lp-dot{width:6px;height:6px;border-radius:50%;background:var(--live);flex:none;
+  animation:pulse 2.4s ease-in-out infinite}
+.lp-title{font-size:13px;font-weight:500;color:var(--t1)}
+.lp-sp{flex:1}
+.lp-time{font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
+.lp-round{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  background:var(--hover);color:var(--t2);flex:none}
+.lp-round svg{width:5.25px;height:9px;fill:none;stroke:currentColor;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+.lp-round.stop{background:#F5F5F5;color:#0A0A0A}
+.lp-round.stop i{width:7.5px;height:7.5px;border-radius:1px;background:currentColor}
+.lp-tracks{display:flex;flex-direction:column;gap:10px;padding-bottom:12px}
+.lp-track{display:flex;align-items:center;gap:10px}
+.lp-voice{flex:0 0 64px;font-size:10px;font-weight:500;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--t3);transition:color .14s var(--quick)}
+.lp-track.you.talk .lp-voice{color:var(--live)}
+.lp-track.room.talk .lp-voice{color:var(--live2)}
+.lp-sig{flex:1;min-width:0;height:30px;display:flex;align-items:center;
+  justify-content:space-between;transition:opacity .2s var(--quick)}
+.lp-sig i{width:3px;height:2px;border-radius:1.5px;background:var(--live);flex:none;display:block}
+.lp-track.room .lp-sig i{background:var(--live2)}
+.lp-track.paused .lp-sig{opacity:.3}
+.lp-track.paused .lp-sig i{background:var(--t3)}
+.lp-track.paused .lp-voice{color:var(--t3)}
+.lp-mute{font:inherit;width:20px;height:20px;padding:0;border:0;border-radius:50%;flex:none;
+  display:grid;place-items:center;color:var(--t3);background:transparent;cursor:pointer;
+  transition:color .14s var(--quick),background-color .14s var(--quick),transform .14s var(--quick)}
+.lp-mute:hover{color:var(--t2);background:var(--hover)}
+.lp-mute:active{transform:scale(.985)}
+.lp-mute.press{transform:scale(.9)}
+.lp-mute.on{color:var(--t1);background:#2B2B2B}
+.lp-mute svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.lp-mute .x{display:none}.lp-mute.on .x{display:block}.lp-mute.on .o{display:none}
+.lp-div{height:1px;background:var(--soft)}
+.lp-lines{height:212px;overflow:hidden;display:flex;flex-direction:column;
+  justify-content:flex-end;gap:12px;padding:12px 0 4px;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 22%)}
+.lp-line{--tint:var(--live);display:flex;gap:9px;flex:none;font-size:12.5px;
+  line-height:calc(1.2em + 2.5px);color:var(--t2);animation:lpin .46s var(--spring) both}
+.lp-line.room{--tint:var(--live2)}
+.lp-line::before{content:"";flex:0 0 2px;border-radius:1px;
+  background:color-mix(in srgb,var(--tint) 35%,transparent)}
+.lp-line.set{color:var(--t1)}
+.lp-line.set::before{background:color-mix(in srgb,var(--tint) 75%,transparent)}
+@keyframes lpin{from{opacity:0;transform:translateY(10px)}}
+.lp-hint{position:relative;z-index:1;font-family:var(--mono);font-size:11.5px;line-height:1.8;
+  color:var(--t3);margin:16px 0 0;max-width:46ch;min-height:3.6em}
+.lp-hint b{color:var(--t1);font-weight:400}
+@media(prefers-reduced-motion:reduce){.lp-dot{animation:none}.lp-line{animation:none}}
 </style>
 </head>
 <body>
@@ -685,9 +811,11 @@ footer{padding:64px 0 40px}
   <div class="lg-bars" id="lgBars" aria-hidden="true"></div>
   <ul class="lg-list" id="lgList">
     <li><a href="#s-does"><span data-t="what it does"></span></a></li>
+    <li><a href="#s-windows"><span data-t="windows"></span></a></li>
     <li class="lg-opt"><a href="#s-why"><span data-t="why it exists"></span></a></li>
     <li><a href="#s-security"><span data-t="security"></span></a></li>
     <li><a href="#s-dictionary"><span data-t="what it writes" data-wrong="what it rights"></span></a></li>
+    <li class="lg-opt"><a href="#s-live"><span data-t="live calls"></span></a></li>
     <li><a href="#s-model"><span data-t="long meetings"></span></a></li>
     <li class="lg-opt"><a href="#s-how"><span data-t="under the hood"></span></a></li>
     <li><a href="#s-install"><span data-t="install"></span></a></li>
@@ -724,12 +852,17 @@ footer{padding:64px 0 40px}
       <p class="lede">
         Hold a key. Talk. The words land wherever your cursor is. Transcribed by
         the machine on your desk — not by a machine in someone else's building,
-        and never onto a disk that someone else can lose. Free software, and
-        every line of it open to read.
+        and never onto a disk that someone else can lose. On the Mac, and now
+        on Windows. Free software, and every line of it open to read.
       </p>
-      <div class="row-cta">
-        <a class="btn b1 mag" href="https://github.com/getnsh/huh/releases">Download</a>
-        <a class="btn b2 mag" href="https://github.com/getnsh/huh">Source</a>
+      <div>
+        <div class="row-cta">
+          <a class="btn b1 mag" id="dlMain" href="https://github.com/getnsh/huh/releases/latest">Download for Mac</a>
+          <a class="btn b2 mag" id="dlAlt" href="https://github.com/getnsh/huh/releases/tag/win-v0.2.0">Windows</a>
+          <a class="btn b2 mag" href="https://github.com/getnsh/huh">Source</a>
+        </div>
+        <p class="plats"><span><b>Mac</b> Apple silicon, macOS 26</span>
+          <span><b>Windows</b> 10 or 11, 64-bit</span></p>
       </div>
     </div>
   </div>
@@ -795,6 +928,89 @@ footer{padding:64px 0 40px}
       of all on the words that matter most: people, products, the jargon your team
       invented last Tuesday. Everything in this app exists to close that gap.
     </p>
+  </div>
+</section>
+
+<!-- ═══ NOW ON WINDOWS ═══ -->
+<section class="scene" id="s-windows">
+  <div class="wrap">
+    <p class="tc rise"><b>00:21</b><span></span>now on windows</p>
+    <h2 class="rise" style="max-width:14ch">Now on <span class="q">Windows</span> too.</h2>
+    <p class="body rise" style="max-width:58ch">The same app, rebuilt for the PC rather than wrapped
+      for it — the same grey, the same one purple, the same key held down. Hold <strong>Right
+      Ctrl</strong>, talk, let go, and the words land where the cursor is: in Word, in Teams, in a
+      terminal. Dictation, live calls, recordings, summaries and the dictionary that learns names
+      all came across, and none of it sends anything anywhere.</p>
+
+    <div class="stage-wrap rise">
+      <div class="stage-fit" id="stageFitW">
+        <div class="stage" id="stageW" aria-hidden="true">
+
+          <div class="win pc">
+            <div class="win-bar"><span>Untitled - Notepad</span><em class="cb"><svg viewBox="0 0 10 10"><path d="M0 5.5h10"/></svg><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1"/></svg><svg viewBox="0 0 10 10"><path d="M.5.5l9 9M9.5.5l-9 9"/></svg></em></div>
+            <div class="win-body"><span id="docTextW"></span><span class="caret"></span></div>
+          </div>
+
+          <div class="keychip" id="keyChipW">Ctrl&nbsp; <b>right ctrl</b></div>
+
+          <div class="hud" id="hudW">
+            <div class="hud-head">
+              <div class="bars" id="barsW"></div>
+              <span class="hud-cap" id="hudCapW">Listening</span>
+            </div>
+            <div class="hud-done-row">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm3.9 5.7-4.6 5.1a.8.8 0 0 1-1.2 0L4 8.6a.8.8 0 1 1 1.2-1l1.5 1.7 4-4.5a.8.8 0 1 1 1.2 1Z"/></svg>
+              <span>Inserted into Notepad</span>
+            </div>
+            <div class="hud-partial" id="hudPartialW"></div>
+          </div>
+
+        </div>
+      </div>
+      <p class="stage-note">The Windows overlay, drawn to the same numbers as the Mac's: bottom centre of
+        the screen you are working on, and never taking focus from the window you are typing into.
+        The words come from Parakeet TDT 0.6B running on the processor, so no graphics card is
+        needed.</p>
+    </div>
+
+    <h3 class="sub-h rise">The same app, <span class="q">both</span> sides.</h3>
+    <p class="body rise" style="max-width:58ch">Only what has to be Windows is Windows. The dictionary,
+      the corrections and the cleanup are one engine, held to one file of test cases that the Mac and
+      the PC both run, so a word fixed on one is fixed the same way on the other.</p>
+    <div class="parity rise">
+      <div class="ph e"></div><div class="ph">Mac</div><div class="ph">Windows</div>
+      <div class="k">the key</div><div><b>Right Option</b>, held</div><div><b>Right Ctrl</b>, held</div>
+      <div class="k">hears you</div><div>SpeechAnalyzer or Parakeet TDT, on the Neural Engine</div>
+        <div><b>Parakeet TDT 0.6B</b>, on the processor through ONNX Runtime</div>
+      <div class="k">hears the call</div><div>a Core Audio process tap</div><div>WASAPI loopback, beside the microphone</div>
+      <div class="k">writes it up</div><div>Apple's on-device model, or Qwen3 4B</div>
+        <div><b>Qwen3 4B</b> on the processor — about five minutes for an hour of meeting</div>
+      <div class="k">downloads</div><div>nothing, unless you choose a model</div>
+        <div>the speech model once, <b>670 MB</b>; Qwen3 4B, 2.9 GB, only if you choose it</div>
+      <div class="k">keeps it in</div><div><code>~/Library/Application Support/Huh</code></div><div><code>%APPDATA%\Huh</code></div>
+      <div class="k">built in</div><div>Swift and SwiftUI</div><div>Rust, Tauri and Svelte</div>
+    </div>
+
+    <h3 class="sub-h rise">The first launch says what it is <span class="q">doing</span>.</h3>
+    <p class="body rise" style="max-width:58ch">A PC has no speech model built in, so huh? fetches one the
+      first time it opens: 670 MB from one pinned revision, every file checked against a SHA-256
+      compiled into the app. Until it is in, the window says so, with the real sizes — and a download
+      that stops carries on from where it got to. It happens once.</p>
+    <div class="fstage rise">
+      <div class="frwin" id="fr" aria-hidden="true">
+        <div class="frbar"><svg viewBox="0 0 10 10"><path d="M0 5.5h10"/></svg><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1"/></svg><svg viewBox="0 0 10 10"><path d="M.5.5l9 9M9.5.5l-9 9"/></svg></div>
+        <div class="frbody">
+          <p class="tc mock"><b id="frNum">00:01</b><span></span><em id="frLbl" style="font-style:normal">downloading</em></p>
+          <h3 class="frt" id="frT">Getting the speech model.</h3>
+          <p class="frl" id="frL">huh? hears everything on this PC, so the model that listens lives here too.
+            It is fetched once, checked, and kept.</p>
+          <div class="frtrk" id="frTrk"><i id="frFill"></i></div>
+          <div class="frm"><span id="frA">0.0 of 670.6 MB</span><span id="frB">0%</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="stage-note">Rebuilt from the window's first-launch screen, with its own words. 670.6 MB is the
+      model's real size.</p>
   </div>
 </section>
 
@@ -932,12 +1148,18 @@ footer{padding:64px 0 40px}
       <li><i>&check;</i><span>There is no <code>URLSession</code>, no socket and no subprocess
         anywhere in the source. <b>The application cannot make a network request</b>, because there
         is no code in it that makes one.</span></li>
+      <li><i>&check;</i><span>On Windows, <b>the one request the app makes is the speech model's
+        download</b> — one pinned revision, every file checked against a SHA-256 compiled into the app,
+        carrying nothing of yours.</span></li>
       <li><i>&check;</i><span><b>One entitlement: the microphone.</b> That is the entire list.</span></li>
       <li><i>&check;</i><span><b>Audio is never written to disk.</b> It exists in memory for the
         length of an utterance and is discarded when the utterance ends.</span></li>
       <li><i>&check;</i><span>The hotkey monitor asks for modifier keys only, and listen-only. It is
         <b>structurally incapable of seeing what you type</b> — not configured not to, unable
         to.</span></li>
+      <li><i>&check;</i><span>Windows cannot be asked for one key, so its hook is handed every key — and
+        <b>compares each to the one you chose, then passes it on untouched</b>. Nothing it sees is
+        kept.</span></li>
       <li><i>&check;</i><span><b>Dictation is refused when a password field has focus</b>, or when
         another application has engaged secure input. It does not fall back to the clipboard.</span></li>
       <li><i>&check;</i><span>What briefly reaches your clipboard is <b>confined to this machine</b>
@@ -1047,6 +1269,43 @@ footer{padding:64px 0 40px}
       <div class="tr-line"><time>08:41</time><p>And nobody touches production on a Friday.</p></div>
     </div>
   </div></div></div></div>
+</section>
+
+<!-- ═══ LIVE CALLS ═══ -->
+<section class="scene" id="s-live">
+  <div class="wrap">
+    <p class="tc rise"><b>03:52</b><span></span>while the call runs</p>
+    <h2 class="rise" style="max-width:15ch">Live, while the <span class="q">call</span> runs.</h2>
+    <p class="body rise" style="max-width:58ch">When Teams, Zoom, Slack, Discord or Webex takes the
+      microphone, huh? notices and offers to listen. You and the call are heard as two voices and
+      written down as they speak, in a small panel at the top of the screen that folds away to a mark
+      when you would rather not see it.</p>
+    <p class="body rise" style="max-width:58ch"><strong>And either voice can be paused.</strong> A side
+      conversation in the room, a video in another tab: press pause and that voice is heard as
+      silence. Nothing said while it is paused reaches the transcript, and the clock keeps running, so
+      everything after it is still timed right.</p>
+    <div class="fstage rise">
+      <div class="lp" id="lp">
+        <div class="lp-head">
+          <span class="lp-dot"></span><span class="lp-title">Teams</span><span class="lp-sp"></span>
+          <span class="lp-time" id="lpTime">12:04</span>
+          <span class="lp-round" aria-hidden="true"><svg viewBox="0 0 5.25 9"><path d="M0.875 0.875 4.375 4.5 0.875 8.125"/></svg></span>
+          <span class="lp-round stop" aria-hidden="true"><i></i></span>
+        </div>
+        <div class="lp-tracks">
+          <div class="lp-track you"><span class="lp-voice">You</span><span class="lp-sig" aria-hidden="true"></span>
+            <button class="lp-mute" type="button" aria-pressed="false" aria-label="Pause microphone" title="Pause microphone"><svg class="o" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><svg class="x" viewBox="0 0 24 24"><path d="M2 2l20 20"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/></svg></button></div>
+          <div class="lp-track room"><span class="lp-voice">Teams</span><span class="lp-sig" aria-hidden="true"></span>
+            <button class="lp-mute" type="button" aria-pressed="false" aria-label="Pause PC sound" title="Pause PC sound"><svg class="o" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg><svg class="x" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M22 9l-6 6M16 9l6 6"/></svg></button></div>
+        </div>
+        <div class="lp-div"></div>
+        <div class="lp-lines" id="lpLines" aria-hidden="true"></div>
+      </div>
+      <p class="lp-hint" id="lpHint" aria-live="polite">Press either pause. The other voice carries on.</p>
+    </div>
+    <p class="stage-note">Rebuilt from the Windows panel, to its sizes and with its labels — the two buttons
+      work. The pause arrived in Windows 0.2.0.</p>
+  </div>
 </section>
 
 <!-- ═══ THE LONG MEETING ═══ -->
@@ -1222,7 +1481,7 @@ footer{padding:64px 0 40px}
       asked it to.</p>
     <div class="ledger rise">
       <div class="led"><div><div class="what">Microphone audio</div><div class="where">memory only — never written to disk</div></div><span class="verdict v-no">stays</span></div>
-      <div class="led"><div><div class="what">Transcripts</div><div class="where">~/Library/Application Support/Huh</div></div><span class="verdict v-no">stays</span></div>
+      <div class="led"><div><div class="what">Transcripts</div><div class="where">~/Library/Application Support/Huh · %APPDATA%\Huh on Windows</div></div><span class="verdict v-no">stays</span></div>
       <div class="led"><div><div class="what">Dictionary &amp; names</div><div class="where">plain JSON, editable by hand</div></div><span class="verdict v-no">stays</span></div>
       <div class="led"><div><div class="what">Speech &amp; summary models</div><div class="where">downloaded once, only if you choose them</div></div><span class="verdict v-no">download only</span></div>
       <div class="led"><div><div class="what">Send to ChatGPT or Claude</div><div class="where">your clipboard, then wherever you paste it</div></div><span class="verdict v-yes">leaves — you paste it</span></div>
@@ -1234,17 +1493,30 @@ footer{padding:64px 0 40px}
 <section class="scene" id="s-install">
   <div class="narrow">
     <p class="tc rise"><b>08:02</b><span></span>install</p>
-    <h2 class="rise">Three lines.</h2>
-    <p class="body rise">No Xcode. No build. Nothing to compile.</p>
+    <h2 class="rise">Three lines. Or one file.</h2>
+    <p class="body rise">On the Mac: no Xcode, no build, nothing to compile.</p>
     <div class="term rise">
       <div class="term-h">Terminal — ~/Downloads</div>
       <div class="term-b">
-<div><span class="p">$</span> unzip huh-0.3.0.zip</div>
-<div><span class="p">$</span> xattr -cr "huh-0.3.0/huh?.app"</div>
-<div><span class="p">$</span> mv "huh-0.3.0/huh?.app" /Applications/</div>
+<div><span class="p">$</span> unzip huh-0.4.4.zip</div>
+<div><span class="p">$</span> xattr -cr "huh-0.4.4/huh?.app"</div>
+<div><span class="p">$</span> mv "huh-0.4.4/huh?.app" /Applications/</div>
 <div class="d">&nbsp;</div>
 <div class="d"># the xattr line is required — signed on the machine that</div>
 <div class="d"># built it, not by Apple, so macOS quarantines it</div>
+      </div>
+    </div>
+    <p class="body rise" style="margin-top:34px">On Windows: run <code>huh-setup_0.2.0_x64.exe</code>. It
+      installs for you alone, with no administrator prompt, and it is the uninstaller too. It is unsigned,
+      so SmartScreen will say <strong>Windows protected your PC</strong>: choose More info, then Run
+      anyway. Check the file first:</p>
+    <div class="term rise">
+      <div class="term-h">PowerShell — Downloads</div>
+      <div class="term-b">
+<div><span class="p">&gt;</span> certutil -hashfile huh-setup_0.2.0_x64.exe SHA256</div>
+<div class="d">&nbsp;</div>
+<div class="d"># compare it with SHASUMS.txt on the release; the</div>
+<div class="d"># first launch then fetches the 670 MB speech model</div>
       </div>
     </div>
     <div class="note rise">
@@ -1311,7 +1583,7 @@ footer{padding:64px 0 40px}
     <canvas id="base"></canvas><canvas id="played"></canvas><span class="head" id="head"></span>
   </div>
   <div class="read"><span id="clock">00:00</span><em id="where">about the name</em></div>
-  <a class="btn b1 mag" href="https://github.com/getnsh/huh/releases"
+  <a class="btn b1 mag" id="dlDock" href="https://github.com/getnsh/huh/releases"
      style="padding:9px 16px;font-size:13px">Download</a>
 </div></div>
 
@@ -2090,7 +2362,8 @@ if(FINE&&!REDUCE){
   function render(){draw(cB,'#2E2E2E');draw(cP,'#9E7BFF')}
   render();new ResizeObserver(render).observe(scrub);
 
-  var beats=[].slice.call(document.querySelectorAll('.tc')).map(function(el){
+  /* .mock is an eyebrow drawn inside a rebuilt window, not a chapter. */
+  var beats=[].slice.call(document.querySelectorAll('.tc:not(.mock)')).map(function(el){
     return{el:el.closest('section'),time:el.querySelector('b').textContent,
            label:el.lastChild.textContent.trim()}});
   var tick=false,last=-1;
@@ -2157,15 +2430,18 @@ if(FINE&&!REDUCE){
    document -- is the product, so it is the thing the eye lands on.
    Confirmation holds 1.4s because that is what DictationController
    holds it for. */
-(function demo(){
-  var stage=document.getElementById('stage');if(!stage)return;
-  var fit=document.getElementById('stageFit'),
-      hud=document.getElementById('hud'),
-      cap=document.getElementById('hudCap'),
-      partial=document.getElementById('hudPartial'),
-      doc=document.getElementById('docText'),
-      chip=document.getElementById('keyChip'),
-      barBox=document.getElementById('bars');
+/* Run twice: once on the Mac's stage, once on the PC's, each with its
+   own sentence. Same overlay, same numbers, same timings. */
+function dictation(sfx,RAW,FINAL){
+  function $(id){return document.getElementById(id+sfx)}
+  var stage=$('stage');if(!stage)return;
+  var fit=$('stageFit'),
+      hud=$('hud'),
+      cap=$('hudCap'),
+      partial=$('hudPartial'),
+      doc=$('docText'),
+      chip=$('keyChip'),
+      barBox=$('bars');
 
   var N=28, bars=[], level=new Float32Array(N);
   for(var i=0;i<N;i++){
@@ -2191,9 +2467,6 @@ if(FINE&&!REDUCE){
   fitStage();
   new ResizeObserver(fitStage).observe(fit);
 
-  var RAW=['ship','the','cuber','netties','config','to','versel','before','thursday'];
-  var FINAL='Ship the <span class="ins">Kubernetes</span> config to '+
-            '<span class="ins">Vercel</span> before Thursday.';
 
   /* ms into the cycle */
   /* Real timings. The 1.4s the confirmation holds is the 1.4s
@@ -2303,7 +2576,13 @@ if(FINE&&!REDUCE){
     if(vis&&!running){running=true;t0=null;if(!raf)raf=requestAnimationFrame(frame)}
     else if(!vis&&running){running=false;}
   },{threshold:0.25}).observe(stage);
-})();
+}
+dictation('',['ship','the','cuber','netties','config','to','versel','before','thursday'],
+  'Ship the <span class="ins">Kubernetes</span> config to '+
+  '<span class="ins">Vercel</span> before Thursday.');
+dictation('W',['send','the','super','base','keys','to','ayda','oconquo','before','three'],
+  'Send the <span class="ins">Supabase</span> keys to '+
+  '<span class="ins">Ada Okonkwo</span> before three.');
 /* ═══ 12. THE REVIEW QUEUE ═══
    Two proposals, answered the two different ways the application
    offers: a term to the dictionary, a name to People. What matters
@@ -2662,6 +2941,243 @@ if(FINE&&!REDUCE){
     nav.classList.toggle('on',past);
     if(past)write();
   },{threshold:0}).observe(hero);
+})();
+
+/* ═══ 15. WHICH DOWNLOAD ═══
+   The hero's first button is for the computer reading the page; the
+   other platform stays one button away. Read from the user agent, which
+   is all a page with connect-src 'none' has to go on. */
+(function which(){
+  if(!/Windows/i.test(navigator.userAgent))return;
+  var main=document.getElementById('dlMain'),alt=document.getElementById('dlAlt'),
+      dock=document.getElementById('dlDock');
+  var WIN='https://github.com/getnsh/huh/releases/tag/win-v0.2.0',
+      MAC='https://github.com/getnsh/huh/releases/latest';
+  if(main){main.textContent='Download for Windows';main.href=WIN}
+  if(alt){alt.textContent='Mac';alt.href=MAC}
+  if(dock)dock.href=WIN;
+})();
+
+/* ═══ 16. THE FIRST LAUNCH ═══
+   FirstRun.svelte's three steps on a loop: the download with its real
+   sizes, the load, and Ready with the key to hold. The text only changes
+   when the step does, so the heading arrives once per step rather than
+   being rewritten every frame. */
+(function firstRun(){
+  var fr=document.getElementById('fr');if(!fr)return;
+  var num=document.getElementById('frNum'),lbl=document.getElementById('frLbl'),
+      title=document.getElementById('frT'),lede=document.getElementById('frL'),
+      trk=document.getElementById('frTrk'),fill=document.getElementById('frFill'),
+      a=document.getElementById('frA'),b=document.getElementById('frB');
+  var MB=670.6, DL=5600, LOAD=7000, READY=10200, LOOP=10600;
+  var STEPS={
+    dl:['00:01','downloading','Getting the speech model.',
+        'huh? hears everything on this PC, so the model that listens lives here too. It is fetched once, checked, and kept.'],
+    load:['00:02','loading','Loading the speech model.',
+        'A few seconds. The download was the slow part, and it is done.'],
+    ready:['00:03','ready','Ready.',
+        'Hold <kbd>Right Ctrl</kbd> and speak. The words go wherever the cursor is.']
+  };
+  var step='';
+  function show(name){
+    if(step===name)return; step=name;
+    var s=STEPS[name];
+    num.textContent=s[0]; lbl.textContent=s[1];
+    title.textContent=s[2]; lede.innerHTML=s[3];
+    [title,lede].forEach(function(el){
+      el.classList.remove('frin'); void el.offsetWidth; el.classList.add('frin');
+    });
+    trk.classList.toggle('thumb',name==='load');
+  }
+  /* A download is not a straight line: it starts slow, finds its pace
+     and holds it. */
+  function progress(p){return p<.08?p*p/.16:p-.04}
+  function render(ms){
+    if(ms<DL){
+      show('dl');
+      var p=Math.max(0,Math.min(1,progress(ms/DL)));
+      fill.style.width=(p*100).toFixed(2)+'%';
+      a.textContent=(p*MB).toFixed(1)+' of '+MB+' MB';
+      b.textContent=Math.floor(p*100)+'%';
+    }else if(ms<LOAD){
+      show('load');
+      fill.style.width='';
+      a.textContent='Parakeet TDT 0.6B v3, kept on this PC'; b.textContent='';
+    }else{
+      show('ready');
+      fill.style.width='100%';
+      a.textContent='Parakeet TDT 0.6B v3, kept on this PC'; b.textContent='';
+    }
+    fr.style.opacity=ms>READY?Math.max(0,1-(ms-READY)/(LOOP-READY)*1.6).toFixed(3):'';
+  }
+  if(REDUCE){render(DL*.34);return}
+  var run=false,raf=0,t0=null;
+  function frame(now){
+    if(!run){raf=0;return}
+    raf=requestAnimationFrame(frame);
+    if(t0===null)t0=now;
+    render((now-t0)%LOOP);
+  }
+  new IntersectionObserver(function(e){
+    var vis=e[0].isIntersecting;
+    if(vis&&!run){run=true;t0=null;step='';if(!raf)raf=requestAnimationFrame(frame)}
+    else if(!vis)run=false;
+  },{threshold:0.3}).observe(fr);
+})();
+
+/* ═══ 17. THE LIVE PANEL ═══
+   A call, in the Windows panel, with both pause buttons working. Each
+   voice says its lines in turn: the words arrive as a grey draft and
+   settle into the record. A paused voice is fed silence, so its trace
+   lies flat and what it says while paused never becomes a line -- the
+   point the section makes, shown rather than told.
+   The pause should be the reader's to press. Only if nobody has touched
+   either button does the panel press one itself, once, for the side
+   remark that is the reason the button exists. */
+(function livePanel(){
+  var lp=document.getElementById('lp');if(!lp)return;
+  var box=document.getElementById('lpLines'),hint=document.getElementById('lpHint'),
+      clock=document.getElementById('lpTime');
+  var BARS=40, touched=false, tracks={};
+  ['you','room'].forEach(function(v){
+    var row=lp.querySelector('.lp-track.'+v),sig=row.querySelector('.lp-sig'),
+        btn=row.querySelector('.lp-mute'),bars=[];
+    for(var i=0;i<BARS;i++){var b=document.createElement('i');sig.appendChild(b);bars.push(b)}
+    tracks[v]={row:row,btn:btn,bars:bars,level:new Float32Array(BARS),paused:false};
+    btn.addEventListener('click',function(){touched=true;pause(v,!tracks[v].paused)});
+  });
+
+  function pause(v,on){
+    var t=tracks[v];t.paused=on;
+    t.row.classList.toggle('paused',on);
+    t.btn.classList.toggle('on',on);
+    t.btn.setAttribute('aria-pressed',String(on));
+    var what=v==='you'?'microphone':'PC sound';
+    t.btn.title=(on?'Resume ':'Pause ')+what;
+    t.btn.setAttribute('aria-label',t.btn.title);
+    if(on&&cur&&cur.v===v&&draft){draft.remove();draft=null}
+    words();
+  }
+  function words(){
+    var y=tracks.you.paused,r=tracks.room.paused;
+    hint.innerHTML=y&&r?'Both paused. The clock keeps running; <b>nothing is kept</b> until one comes back.'
+      :y?'<b>Your microphone is paused.</b> Whatever you say now is heard as silence and never kept. Teams is still heard.'
+      :r?'<b>The PC sound is paused.</b> The call goes unrecorded, and so does the video in the other tab. You are still heard.'
+      :'Press either pause. The other voice carries on.';
+  }
+
+  var SCRIPT=[
+    {v:'room',t:'Can we move the design review to Thursday at three?'},
+    {v:'you', t:'Thursday works. I will send the invite after this.'},
+    {v:'room',t:'And bring the onboarding numbers if you have them.'},
+    {v:'you', t:'Sorry, can someone get the door?',side:true},
+    {v:'you', t:'I have them. Drop-off is mostly at the permissions step.'},
+    {v:'room',t:'Then that is the first thing we fix.'},
+    {v:'you', t:'Agreed. Written up before Friday.'}
+  ];
+  var PER=250, AFTER=700, REST=2600;
+  var i=0, cur=null, at=0, draft=null, auto=false, autoDone=false;
+
+  function add(v,text,set){
+    var el=document.createElement('div');
+    el.className='lp-line '+v+(set?' set':'');
+    el.textContent=text;
+    box.appendChild(el);
+    while(box.children.length>7)box.removeChild(box.firstChild);
+    return el;
+  }
+  function begin(now){
+    cur=SCRIPT[i]; at=now; draft=null;
+    cur.n=cur.t.split(' ').length;
+    cur.len=Math.max(1400,cur.n*PER);
+    /* The side remark, if the reader never reached for the button. */
+    if(cur.side&&!touched&&!autoDone&&!tracks.you.paused){
+      auto=true; autoDone=true; press('you',true);
+    }
+  }
+  function press(v,on){
+    var b=tracks[v].btn; b.classList.add('press');
+    setTimeout(function(){b.classList.remove('press')},140);
+    pause(v,on);
+  }
+  function finish(){
+    var t=tracks[cur.v];
+    if(!t.paused){
+      if(draft){draft.textContent=cur.t;draft.classList.add('set');draft=null}
+      else add(cur.v,cur.t,true);
+    }
+    if(auto&&cur.side){auto=false;if(!touched)press('you',false)}
+  }
+
+  function level(v,now){
+    var t=tracks[v];
+    if(t.paused)return 0;
+    var talking=cur&&cur.v===v&&now-at<cur.len;
+    if(!talking)return 0.03+0.02*Math.random();
+    var p=(now-at)/1000;
+    var syl=0.55+0.45*Math.sin(p*15.5+(v==='you'?0:1.7));
+    var word=0.45+0.55*Math.abs(Math.sin(p*3.4));
+    return Math.min(1,syl*word*0.9);
+  }
+  function draw(v,now){
+    var t=tracks[v],L=t.level;
+    for(var k=0;k<BARS-1;k++)L[k]=L[k+1];
+    L[BARS-1]=level(v,now);
+    for(var j=0;j<BARS;j++){
+      var h=t.paused?2:2+Math.pow(L[j],0.65)*26;
+      t.bars[j].style.height=h.toFixed(1)+'px';
+    }
+    t.row.classList.toggle('talk',!t.paused&&!!cur&&cur.v===v&&now-at<cur.len);
+  }
+
+  var secs=12*60+4,lastTick=0;
+  function tickClock(now){
+    if(now-lastTick<1000)return;
+    lastTick=now;secs++;
+    clock.textContent=Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+  }
+
+  function frame(now){
+    if(!run){raf=0;return}
+    raf=requestAnimationFrame(frame);
+    if(!lastTick)lastTick=now;
+    tickClock(now);
+    if(!cur)begin(now);
+    var ms=now-at;
+    if(ms<cur.len){
+      if(!tracks[cur.v].paused){
+        var shown=Math.max(1,Math.ceil(ms/cur.len*cur.n));
+        var text=cur.t.split(' ').slice(0,shown).join(' ');
+        if(!draft)draft=add(cur.v,text,false);
+        else if(draft.textContent!==text)draft.textContent=text;
+      }
+    }else if(!cur.done){
+      cur.done=true; finish();
+    }else if(ms>=cur.len+AFTER+(i===SCRIPT.length-1?REST:0)){
+      cur.done=false;
+      i=(i+1)%SCRIPT.length;
+      if(i===0)box.innerHTML='';
+      cur=null;
+    }
+    draw('you',now);draw('room',now);
+  }
+
+  function still(){
+    box.innerHTML='';
+    SCRIPT.forEach(function(s){if(!s.side)add(s.v,s.t,true)});
+    ['you','room'].forEach(function(v){
+      tracks[v].bars.forEach(function(b,k){b.style.height=(3+5*Math.abs(Math.sin(k*0.6+(v==='you'?0:2)))).toFixed(1)+'px'});
+    });
+    words();
+  }
+  if(REDUCE){still();return}
+
+  var run=false,raf=0;
+  new IntersectionObserver(function(e){
+    var vis=e[0].isIntersecting;
+    if(vis&&!run){run=true;if(!raf)raf=requestAnimationFrame(frame)}
+    else if(!vis)run=false;
+  },{threshold:0.3}).observe(lp);
 })();
 })();
 </script>
