@@ -95,7 +95,7 @@ fn begin(handle: &AppHandle, app: &Shared) {
     // Before the microphone: a press during the first-launch download should
     // say so, not record something there is nothing to transcribe with.
     match app.recogniser.status() {
-        Status::Downloading { percent } => {
+        Status::Downloading { percent, .. } => {
             return fail(
                 handle,
                 app,

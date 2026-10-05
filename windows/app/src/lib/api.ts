@@ -30,6 +30,7 @@ export const api = {
   /* Dictation */
   dictationState: () => invoke<DictationState>("state"),
   engineStatus: () => invoke<EngineStatus>("engine_status"),
+  retryEngine: () => invoke<void>("retry_engine"),
   toggleDictation: () => invoke<void>("toggle_dictation"),
 
   /* Transcripts */

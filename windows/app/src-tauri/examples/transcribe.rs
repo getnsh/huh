@@ -57,7 +57,7 @@ fn main() {
 
     let recogniser = Recogniser::new();
     recogniser.prepare(|status| match status {
-        Status::Downloading { percent } => println!("downloading… {percent}%"),
+        Status::Downloading { percent, .. } => println!("downloading… {percent}%"),
         other => println!("{other:?}"),
     });
 

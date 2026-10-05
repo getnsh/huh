@@ -106,6 +106,12 @@ fn engine_status(app: tauri::State<'_, Shared>) -> speech::Status {
     app.recogniser.status()
 }
 
+/// Tries the model again after the download or the load failed.
+#[tauri::command]
+fn retry_engine(app: tauri::State<'_, Shared>) {
+    app.recogniser.retry();
+}
+
 /// Starts and stops from the window or the tray, independently of the key.
 ///
 /// On a thread of its own: a synchronous command runs on the interface's
@@ -160,6 +166,7 @@ pub fn run() {
             preview_corrections,
             state,
             engine_status,
+            retry_engine,
             toggle_dictation,
             book::get_history,
             book::delete_transcripts,

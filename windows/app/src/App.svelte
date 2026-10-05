@@ -8,6 +8,7 @@
   import Banners from "./lib/shell/Banners.svelte";
   import RecordBar from "./lib/shell/RecordBar.svelte";
   import DropOverlay from "./lib/shell/DropOverlay.svelte";
+  import FirstRun from "./lib/shell/FirstRun.svelte";
   import Transcripts from "./sections/transcripts/Transcripts.svelte";
   import Dictionary from "./sections/dictionary/Dictionary.svelte";
   import EditorSheet from "./sections/dictionary/EditorSheet.svelte";
@@ -16,12 +17,15 @@
   import { connect, ui } from "./lib/state.svelte";
 
   let topBar: TopBar | undefined = $state(undefined);
+  /* While the first launch fetches the model, nothing under that screen can
+     be reached, by pointer or by keyboard. */
+  let firstRun = $state(false);
 
   $effect(() => connect());
 
   /* The Mac's menu commands, with Ctrl for Command. */
   function keydown(event: KeyboardEvent) {
-    if (ui.editor) return;
+    if (ui.editor || firstRun) return;
     const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
     const key = event.key.toLowerCase();
     if (ctrl && !event.shiftKey && key === "r") {
@@ -64,34 +68,45 @@
 
 <div class="window">
   <CaptionStrip />
-  <TopBar bind:this={topBar} />
-  <div class="banners"><Banners /></div>
-  <main>
-    {#key ui.section}
-      <div class="section">
-        {#if ui.section === "transcripts"}
-          <Transcripts />
-        {:else}
-          <Dictionary />
-        {/if}
-      </div>
-    {/key}
-  </main>
-  <RecordBar />
+  <div class="contents" inert={firstRun}>
+    <TopBar bind:this={topBar} />
+    <div class="banners"><Banners /></div>
+    <main>
+      {#key ui.section}
+        <div class="section">
+          {#if ui.section === "transcripts"}
+            <Transcripts />
+          {:else}
+            <Dictionary />
+          {/if}
+        </div>
+      {/key}
+    </main>
+    <RecordBar />
+  </div>
+  <FirstRun bind:showing={firstRun} />
 </div>
 
 {#if ui.editor}
   <EditorSheet />
 {/if}
 
-<DropOverlay />
+{#if !firstRun}
+  <DropOverlay />
+{/if}
 
 <style>
   .window {
+    position: relative;
     display: grid;
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     height: 100vh;
     min-width: 0;
+  }
+
+  /* Only there to carry `inert`; its children stay rows of the grid. */
+  .contents {
+    display: contents;
   }
 
   .banners {

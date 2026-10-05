@@ -15,7 +15,8 @@ export type DictationState =
 /* The recogniser: downloading on a first launch, then loading, then ready. */
 export type EngineStatus =
   | { kind: "waiting" }
-  | { kind: "downloading"; percent: number }
+  /* Bytes count only what was missing when the download began. */
+  | { kind: "downloading"; percent: number; done: number; total: number }
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "failed"; message: string };

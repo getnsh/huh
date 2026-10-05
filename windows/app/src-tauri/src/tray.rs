@@ -246,7 +246,7 @@ fn status_line(shared: &Shared, state: &State) -> String {
                 Status::Ready => {
                     format!("hold {}", shared.settings.read().hotkey.label())
                 }
-                Status::Downloading { percent } => format!("downloading model… {percent}%"),
+                Status::Downloading { percent, .. } => format!("downloading model… {percent}%"),
                 Status::Failed { .. } => "model failed to load".into(),
                 Status::Waiting | Status::Loading => "loading model…".into(),
             }

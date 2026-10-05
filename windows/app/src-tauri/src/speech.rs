@@ -44,6 +44,10 @@ pub enum Status {
     Waiting,
     Downloading {
         percent: u8,
+        /// Bytes fetched and bytes wanted, counting only what was missing,
+        /// so the first-launch screen can give real sizes.
+        done: u64,
+        total: u64,
     },
     Loading,
     Ready,
@@ -121,12 +125,15 @@ pub fn present(folder: &Path) -> bool {
     fetch::present(folder, &PARTS)
 }
 
-/// Fetches whatever is missing, reporting progress as a whole percentage of
-/// what was missing.
-pub fn download(folder: &Path, progress: &mut dyn FnMut(u8)) -> Result<(), String> {
-    fetch::download(&SOURCE, folder, &PARTS, &mut |done, total| {
-        progress((done * 100 / total.max(1)).min(100) as u8)
-    })
+/// The size of the whole model, as the first launch will fetch it.
+pub fn total_bytes() -> u64 {
+    PARTS.iter().map(|part| part.bytes).sum()
+}
+
+/// Fetches whatever is missing, reporting the bytes done and the bytes
+/// wanted, counting only what was missing.
+pub fn download(folder: &Path, progress: &mut dyn FnMut(u64, u64)) -> Result<(), String> {
+    fetch::download(&SOURCE, folder, &PARTS, progress)
 }
 
 enum Job {
@@ -188,6 +195,7 @@ impl Recogniser {
     }
 
     /// Tries again after a failure: a download that died with the network, say.
+    /// The parts already fetched are kept, so it carries on where it stopped.
     pub fn retry(&self) {
         if matches!(self.status(), Status::Failed { .. }) {
             let _ = self.jobs.send(Job::Prepare);
@@ -292,14 +300,27 @@ impl Worker {
     fn ensure(&mut self) -> Result<&mut ParakeetModel, String> {
         if self.model.is_none() {
             if !present(&self.folder) {
-                self.set(Status::Downloading { percent: 0 });
-                let mut last = 0u8;
+                self.set(Status::Downloading {
+                    percent: 0,
+                    done: 0,
+                    total: total_bytes(),
+                });
+                // Told every whole percent, or about every 2 MB on this
+                // model, whichever is sooner: often enough for the sizes on
+                // the first-launch screen to move, not so often that the
+                // interface is sent thousands of events.
+                let mut last = (0u8, 0u64);
                 let status = self.status.clone();
                 let listener = self.listener.clone();
-                let result = download(&self.folder, &mut |percent| {
-                    if percent != last {
-                        last = percent;
-                        let now = Status::Downloading { percent };
+                let result = download(&self.folder, &mut |done, total| {
+                    let percent = (done * 100 / total.max(1)).min(100) as u8;
+                    if percent != last.0 || done >= last.1 + 2_000_000 {
+                        last = (percent, done);
+                        let now = Status::Downloading {
+                            percent,
+                            done,
+                            total,
+                        };
                         *status.write() = now.clone();
                         if let Some(listener) = listener.get() {
                             listener(&now);
